@@ -2,8 +2,8 @@
 
 This file specifies the reference evaluation protocol. It is the source for the
 "Reference evaluation protocol" table of the survey (Section VII-C). Sections are added
-as the corresponding components are implemented and tested. The separation baseline
-and reporting are not specified here yet.
+as the corresponding components are implemented and tested. Reporting is not specified
+here yet.
 
 ## 1. Datasets
 
@@ -335,3 +335,78 @@ official one found is SUIM-Net. Its checkpoints ship as Keras/TensorFlow `.hdf5`
 in the SUIM archive (`Checkpoint_Data/`). Using them would add a TensorFlow dependency,
 and no verified PyTorch port exists. The task metric is therefore **not part of version
 1.0**.
+
+## 5. Separate source-channel coding baseline
+
+Code: [`uwbench/baselines/`](uwbench/baselines/). Install it with
+`pip install -e .[baseline]`.
+
+### 5.1 Chain
+
+1. **Budget.** k_ch = ⌊ρ C H W⌋ channel uses. With m bits per symbol and an LDPC code
+   (k, n), this gives N = ⌊k_ch m / n⌋ packets of k − 32 payload bits each.
+2. **Source coding.**
+   - **JPEG** (libjpeg, quality 1–95) or **JPEG 2000** (OpenJPEG through Pillow, 9/7
+     wavelet, one layer). JPEG 2000 is the reference codec.
+   - The encoding is the best quality whose actual size fits the budget, found by
+     bisection on the codec parameter. The achieved bpp, headers included, is recorded.
+   - Zero padding after the codestream is tolerated by both decoders, so no length is
+     transmitted.
+   - BPG is not included in version 1.0, because `bpgenc` was not available to test it.
+3. **CRC.** Each packet ends with the CRC-32 of its payload (`zlib.crc32`).
+4. **LDPC.** 5G NR LDPC codes (3GPP TS 38.212) with belief-propagation decoding (20
+   iterations), from NVIDIA Sionna (`sionna-no-rt` ≥ 2.2: PyTorch, Apache-2.0, an
+   optional dependency of this module only). Default k = 1024 and rate 1/2.
+5. **Modulation** (Gray labelling):
+   - BPSK, QPSK and 16-QAM, at unit power, for the AWGN and acoustic channels;
+   - OOK {0, 2} and 4-PAM {0, 2/3, 4/3, 2}, at unit mean intensity, for the optical
+     channel.
+6. **Receiver.**
+   - The channel's `forward_csi` returns an unbiased zero-forcing estimate and the
+     per-symbol noise variance, with perfect CSI. For Watermark this variance excludes
+     the inter-carrier interference; for UWOC it evaluates the shot noise at the mean
+     intensity.
+   - Soft demapping is **exact**: log-sum-exp LLRs, log p(b=1)/p(b=0).
+   - Then LDPC decoding, the CRC check, and source decoding.
+
+### 5.2 Failure policy
+
+An image is **not decoded** in three cases:
+- the budget cannot hold even the lowest-quality codestream;
+- any packet fails its CRC;
+- the codestream does not decode.
+
+The failure rate is reported separately from the fidelity of decoded images. Curves that
+include failures replace an undecoded image by a uniform mid-grey image (value 128).
+
+### 5.3 Ideal separation bound
+
+- The source rate is bpp = ρ C C̄.
+  - C̄ is the capacity per channel use of the current realisation, with perfect CSI and
+    uniform power: mean log₂(1 + 1/vᵢ) for complex channels, and half of that for the
+    real optical channel.
+  - vᵢ is the noise variance the channel reports for a unit-power probe.
+- The JPEG 2000 codestream at that rate is assumed received without error.
+- This bound is not achievable: it assumes infinite blocks and Gaussian inputs,
+  disregards the IM/DD non-negativity, and ignores inter-carrier interference on
+  replayed channels.
+
+### 5.4 Modulation and coding per SNR
+
+- **Configurations.** Each (modulation, code rate) pair is evaluated as a separate
+  scheme. The default sets are {BPSK, QPSK, 16-QAM} × 1/2 for complex channels and
+  {OOK, 4-PAM} × 1/2 for optical ones.
+- **Ideal adaptation.** The "ideal adaptation" curve takes, at each SNR, the best pair
+  of the grid, by mean PSNR including failures.
+
+### 5.5 Tests
+
+- Uncoded BPSK and QPSK BER on AWGN matches theory within 10 % at 10⁻³ (2·10⁶ bits).
+- The LDPC code has a waterfall: with QPSK at rate 1/2, BER > 10⁻² at −1 dB, and no
+  error in 204,800 bits at 3 dB, where uncoded QPSK has ≈ 2·10⁻².
+- The noiseless chain returns the transmitted JPEG 2000 codestream bit for bit, with
+  QPSK, 16-QAM and OOK.
+- The CRC detects errors, the codecs respect the rate budget, and the failure policy
+  applies the fallback.
+- The capacity probe matches log₂(1 + SNR) on AWGN and ½ log₂(1 + SNR h²) on the
+  optical channel.

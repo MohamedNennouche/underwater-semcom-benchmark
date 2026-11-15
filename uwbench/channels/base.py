@@ -49,10 +49,29 @@ def gaussian(shape: tuple[int, ...], rng: np.random.Generator, like: torch.Tenso
     return torch.as_tensor(z, dtype=like.dtype, device=like.device)
 
 
+def equalize(y: torch.Tensor, h: torch.Tensor, var: torch.Tensor | None, csi: bool):
+    """One-tap equalisation of ``y = h x + n`` with ``Var[n] = var`` (``None``: noiseless).
+
+    ``csi=False``: MMSE estimate ``h* y / (|h|^2 + var)`` (zero forcing without noise).
+    ``csi=True``: unbiased zero-forcing estimate ``y / h`` and its per-symbol noise
+    variance ``var / |h|^2``, as needed by a soft demapper.
+    """
+    if csi:
+        nv = torch.zeros_like(y.real) if var is None else var / h.abs().square()
+        return y / h, nv.expand(y.shape)
+    return y / h if var is None else h.conj() * y / (h.abs().square() + var)
+
+
 class Channel:
-    """Base class; subclasses implement :meth:`forward`."""
+    """Base class; subclasses implement :meth:`forward` and :meth:`forward_csi`."""
 
     def forward(self, x: torch.Tensor, snr_db: SNR, rng: np.random.Generator) -> torch.Tensor:
+        raise NotImplementedError
+
+    def forward_csi(self, x: torch.Tensor, snr_db: SNR, rng: np.random.Generator
+                    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """``(y, noise_var)``: unbiased estimate of the normalised transmitted symbols and
+        the noise variance of each (perfect CSI), for digital receivers."""
         raise NotImplementedError
 
     def __call__(self, x, snr_db: SNR, rng: np.random.Generator | None = None):

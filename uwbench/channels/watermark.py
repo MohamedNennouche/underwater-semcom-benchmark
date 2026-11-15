@@ -45,7 +45,7 @@ import scipy.io
 import torch
 import torch.nn.functional as F
 
-from uwbench.channels.base import SNR, Channel, gaussian, noise_variance, normalize_power
+from uwbench.channels.base import SNR, Channel, equalize, gaussian, noise_variance, normalize_power
 from uwbench.data.registry import default_root
 
 WATERMARK_DIR = Path("watermark/extracted/WatermarkV1/Watermark")
@@ -146,6 +146,14 @@ class WatermarkOFDM(Channel):
         return torch.as_tensor(h, dtype=torch.complex64)
 
     def forward(self, x: torch.Tensor, snr_db: SNR, rng: np.random.Generator) -> torch.Tensor:
+        return self._forward(x, snr_db, rng, csi=False)
+
+    def forward_csi(self, x: torch.Tensor, snr_db: SNR, rng: np.random.Generator):
+        """As :meth:`Channel.forward_csi`; the reported variance excludes the
+        inter-carrier interference, which a perfect-CSI one-tap receiver cannot know."""
+        return self._forward(x, snr_db, rng, csi=True)
+
+    def _forward(self, x: torch.Tensor, snr_db: SNR, rng: np.random.Generator, csi: bool):
         if not x.is_complex():
             raise TypeError("WatermarkOFDM expects complex baseband symbols")
         x = normalize_power(x)
@@ -172,10 +180,13 @@ class WatermarkOFDM(Channel):
         y = torch.fft.fft(torch.stack(rows).reshape(b, s, sym_len)[..., self.cp:],
                           norm="ortho")[..., bins]
         hf = torch.stack(responses).to(x.dtype)  # (b, s, N)
-        if snr_db is None:
-            xh = y / hf
-        else:
+        var = None
+        if snr_db is not None:
             var = noise_variance(snr_db, y)
             y = y + var.sqrt() * gaussian(tuple(y.shape), rng, y)
-            xh = hf.conj() * y / (hf.abs().square() + var)
-        return xh.reshape(b, s * self.n)[:, :n_sym]
+        out = equalize(y, hf, var, csi)
+
+        def flat(t: torch.Tensor) -> torch.Tensor:
+            return t.reshape(b, s * self.n)[:, :n_sym]
+
+        return (flat(out[0]), flat(out[1])) if csi else flat(out)

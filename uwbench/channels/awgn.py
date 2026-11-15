@@ -16,9 +16,13 @@ class AWGN(Channel):
     """
 
     def forward(self, x: torch.Tensor, snr_db: SNR, rng: np.random.Generator) -> torch.Tensor:
+        return self.forward_csi(x, snr_db, rng)[0]
+
+    def forward_csi(self, x: torch.Tensor, snr_db: SNR, rng: np.random.Generator):
         if not x.is_complex():
             raise TypeError("AWGN expects complex baseband symbols")
         x = normalize_power(x)
         if snr_db is None:
-            return x
-        return x + noise_variance(snr_db, x).sqrt() * gaussian(tuple(x.shape), rng, x)
+            return x, torch.zeros_like(x.real)
+        var = noise_variance(snr_db, x)
+        return x + var.sqrt() * gaussian(tuple(x.shape), rng, x), var.expand(x.shape)

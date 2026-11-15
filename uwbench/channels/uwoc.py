@@ -108,13 +108,21 @@ class UWOC(Channel):
             * sample_pointing(self.pointing, n, rng)
 
     def forward(self, s: torch.Tensor, snr_db: SNR, rng: np.random.Generator) -> torch.Tensor:
+        return self.forward_csi(s, snr_db, rng)[0]
+
+    def forward_csi(self, s: torch.Tensor, snr_db: SNR, rng: np.random.Generator):
+        """As :meth:`Channel.forward_csi`. The reported variance uses the mean intensity
+        (``sigma_th^2 (1 + zeta h) / h^2``): exact for ``zeta = 0`` (all scenarios),
+        approximate for the signal-dependent shot noise."""
         if s.is_complex() or (s < 0).any():
             raise ValueError("UWOC expects real non-negative intensities")
         s = s / s.mean(dim=-1, keepdim=True).clamp_min(1e-12)
         h = torch.as_tensor(self.gains(s.shape[0], rng), dtype=s.dtype, device=s.device)
         h = h.reshape(-1, *([1] * (s.ndim - 1)))
         y = h * s
-        if snr_db is not None:
-            var = noise_variance(snr_db, s) * (1 + self.zeta * y.detach().clamp_min(0))
-            y = y + var.sqrt() * gaussian(tuple(s.shape), rng, s)
-        return y / h
+        if snr_db is None:
+            return y / h, torch.zeros_like(s)
+        var_th = noise_variance(snr_db, s)
+        var = var_th * (1 + self.zeta * y.detach().clamp_min(0))
+        y = y + var.sqrt() * gaussian(tuple(s.shape), rng, s)
+        return y / h, (var_th * (1 + self.zeta * h) / h**2).expand(s.shape)

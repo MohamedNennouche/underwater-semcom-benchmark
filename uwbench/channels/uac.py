@@ -60,7 +60,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from uwbench.channels.base import SNR, Channel, gaussian, noise_variance, normalize_power
+from uwbench.channels.base import SNR, Channel, equalize, gaussian, noise_variance, normalize_power
 
 
 def thorp_db_per_km(f_khz: np.ndarray | float) -> np.ndarray | float:
@@ -159,6 +159,12 @@ class UACOFDM(Channel):
         self.noise_profile = profile / profile.mean()  # c_k, FFT order
 
     def forward(self, x: torch.Tensor, snr_db: SNR, rng: np.random.Generator) -> torch.Tensor:
+        return self._forward(x, snr_db, rng, csi=False)
+
+    def forward_csi(self, x: torch.Tensor, snr_db: SNR, rng: np.random.Generator):
+        return self._forward(x, snr_db, rng, csi=True)
+
+    def _forward(self, x: torch.Tensor, snr_db: SNR, rng: np.random.Generator, csi: bool):
         if not x.is_complex():
             raise TypeError("UACOFDM expects complex baseband symbols")
         x = normalize_power(x)
@@ -181,11 +187,14 @@ class UACOFDM(Channel):
             r = r * torch.exp(2j * torch.pi * eps * k / n).to(x.dtype)
         y = torch.fft.fft(r[..., cp:], norm="ortho")
         hf = torch.fft.fft(h, n=n).unsqueeze(1)  # (b, 1, n)
-        if snr_db is None:
-            xh = y / hf
-        else:
+        var = None
+        if snr_db is not None:
             var = noise_variance(snr_db, y) * torch.as_tensor(
                 self.noise_profile, dtype=y.real.dtype, device=x.device)
             y = y + var.sqrt() * gaussian(tuple(y.shape), rng, y)
-            xh = hf.conj() * y / (hf.abs().square() + var)
-        return xh.reshape(b, s * n)[:, :n_sym]
+        out = equalize(y, hf, var, csi)
+
+        def flat(t: torch.Tensor) -> torch.Tensor:
+            return t.reshape(b, s * n)[:, :n_sym]
+
+        return (flat(out[0]), flat(out[1])) if csi else flat(out)
