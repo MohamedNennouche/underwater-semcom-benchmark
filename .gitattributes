@@ -1,0 +1,3 @@
+# Checksummed files must keep LF line endings on every platform (see PROTOCOL.md).
+splits/**/*.csv text eol=lf
+uwbench/data/manifests/*.csv text eol=lf

@@ -1,0 +1,36 @@
+# Deduplication and frozen-split parameters (phase 3). Used by `uwbench dedup` and
+# `uwbench split`; the resulting files in splits/ are versioned and their SHA-256 values
+# are listed in PROTOCOL.md.
+
+seed: 0
+# Two images are duplicates when the Hamming distance between their 64-bit pHashes is
+# <= this threshold. Value of the work plan, confirmed by the maintainers on 2026-11-15
+# after inspecting the contact sheets written by `uwbench dedup` (results/dedup/).
+phash_threshold: 6
+# pHash thresholds against the median, so every hash has 32 set bits and distances are
+# always even: a threshold of 6 behaves like 7.
+# Contact sheets: one per (distance, dataset pair), distances 0 .. threshold + margin,
+# at most contact_sheet_pairs random pairs each.
+contact_sheet_margin: 2
+contact_sheet_pairs: 12
+
+# Datasets compared with the others only. TrashCan is ROV video: pHash at threshold 6
+# links different dark low-texture scenes (groups of 1245 frames across 104 videos), so
+# its leakage is handled by splitting per video instead (split_unit).
+skip_intra_dedup: [trashcan]
+# Regex on sample_id whose first group defines units that stay in a single split.
+split_unit:
+  trashcan: '^(vid_\d+)_frame'
+
+# Official test splits are kept intact (maintainers' decision, 2026-11-15).
+# Datasets without an official split: train / val / test = 80 / 10 / 10 (seeded, by unit).
+# Datasets with an official test split: val = val_fraction of the official train pool.
+# Train/val samples whose duplicate group contains a test sample of any dataset are
+# removed (splits/removed.csv).
+val_fraction: 0.1
+test_fraction: 0.1
+
+# Cross-dataset protocols: train on one dataset, test on all kept samples of another.
+cross_dataset:
+  lsui_to_uieb: {train: [lsui_train], val: [lsui_val], test: [uieb_train, uieb_val, uieb_test]}
+  euvp_to_uieb: {train: [euvp_train], val: [euvp_val], test: [uieb_train, uieb_val, uieb_test]}

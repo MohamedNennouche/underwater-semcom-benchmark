@@ -1,0 +1,262 @@
+# Dataset registry, version 1.0 (optical images only).
+#
+# Every URL, license statement and size below was read on the official page given in
+# `sources` on the date in `checked`. Anything not confirmed there is marked TODO(verify).
+# No data is redistributed: this file only says where the official copies live.
+#
+# Field reference
+#   access:      gdrive (automatic via gdown) | manual (instructions printed)
+#   files:       archives to fetch; `sha256: null` until recorded after a first download
+#   expected:    directories (relative to datasets/<key>/extracted) and their file counts;
+#                `path: null` means the layout inside the archive is not yet known
+#   license_status: TODO(verify) until the maintainer confirms the license text
+
+uieb:
+  name: UIEB
+  full_name: Underwater Image Enhancement Benchmark
+  task: enhancement (paired raw/reference)
+  survey_ref: "[212]"
+  citation: "C. Li et al., An underwater image enhancement benchmark dataset and beyond, IEEE TIP, vol. 29, pp. 4376-4389, 2019"
+  homepage: https://li-chongyi.github.io/proj_benchmark.html
+  license_page: https://li-chongyi.github.io/proj_benchmark.html
+  license: >-
+    "The UIEBD dataset is for non-commercial use only." "This UIEB dataset is used only
+    for academic purposes. The re-distribution of this dataset is forbidden!!!"
+  license_status: TODO(verify)
+  access: gdrive
+  sources: [https://li-chongyi.github.io/proj_benchmark.html]
+  checked: 2026-11-15
+  notes: >-
+    Official page states ~630 MB (raw) and ~786 MB (reference). The archives are
+    encrypted; the passwords below are the ones published on the official page
+    ("Raw: 1234567; Reference: 8901234; Challenging: 5678901"). Baidu mirrors:
+    raw https://pan.baidu.com/s/1Oi-If64WV6C98LFC-w0blw,
+    reference https://pan.baidu.com/s/1eCUD_yvDxzwXgfm_C7oiJg,
+    challenging https://pan.baidu.com/s/1nujbTEC8mMPDmft_XUlpCg.
+    The survey's Table V gives 712 images; the official page gives 890 pairs + 60 challenging. TODO(verify).
+    Checked 2026-11-15: raw and reference file names match one to one; 3 of the 60
+    challenging files are JPEG data despite their .png extension (decode by content).
+  files:
+    - {name: raw-890.rar, gdrive_id: 12W_kkblc2Vryb9zHQ6BfGQ_NKUfXYk13, password: "1234567",
+       sha256: 3dbffa5661b1073fd99c5b49d497f7c8de73743e4b24e159e6c0eb027a6edb94}
+    - {name: reference-890.rar, gdrive_id: 1cA-8CzajnVEL4feBRKdBxjEe6hwql6Z7, password: "8901234",
+       sha256: 6fac6bf448823aa7911ea215df0af7f8eabb62de957733daefa4f4f7c19849c2}
+    - {name: challenging-60.rar, gdrive_id: 1Ew_r83nXzVk0hlkfuomWqsAIxuq6kaN4, password: "5678901",
+       sha256: 4d112ebd73044845b365007e34876a00271c81a84a516d29231e1069b056223d}
+  expected:
+    # Inner folder names read from the archive listings (tar -tf), 2026-11-15.
+    - {subset: raw, path: raw-890/raw-890, count: 890}
+    - {subset: reference, path: reference-890/reference-890, count: 890}
+    - {subset: challenging, path: challenging-60/challenging-60, count: 60}
+  published: 2019-11  # survey ref [212], IEEE TIP, Nov. 2019
+  # challenging-60 has no reference image and is not part of the fidelity splits.
+  samples:
+    - {roles: {input: raw-890/raw-890, reference: reference-890/reference-890}}
+
+lsui:
+  name: LSUI
+  full_name: Large-Scale Underwater Images
+  task: enhancement (paired raw/reference)
+  survey_ref: "[213]"
+  citation: "L. Peng, C. Zhu, L. Bian, U-shape transformer for underwater image enhancement, IEEE TIP, vol. 32, pp. 3066-3079, 2023"
+  homepage: https://lintaopeng.github.io/_pages/UIE%20Project%20Page.html
+  license_page: https://lintaopeng.github.io/_pages/UIE%20Project%20Page.html
+  license: >-
+    No dataset license stated. The page only asks: "If you want to use the LSUI dataset,
+    please cite our paper". The GitHub repository's MIT license covers the code only.
+  license_status: TODO(verify)
+  access: gdrive
+  sources:
+    - https://lintaopeng.github.io/_pages/UIE%20Project%20Page.html
+    - https://github.com/LintaoPeng/U-shape_Transformer_for_Underwater_Image_Enhancement
+  checked: 2026-11-15
+  notes: >-
+    4279 image pairs (official page). The README also links an author-divided train/test
+    split (Drive file name "LSUI_划分.zip"); how it was made is not documented. Its train/
+    and test/ folders hold copies of the input images (same names, byte-identical to
+    input/), 3879 + 400 = 4279, i.e. a list of the official partition. Baidu mirror:
+    https://pan.baidu.com/s/1dqB_k6agorQBVVqCda0vjA (password lsui); split mirror
+    https://pan.baidu.com/s/1xjc8hHc6IkUwg3cuPTogxg (password lsui).
+  files:
+    - {name: LSUI.zip, gdrive_id: 10gD4s12uJxCHcuFdX9Khkv37zzBwNFbL,
+       sha256: e15c4a2203f4ddf7ecf4af4327f2fa65a4636eeead9ee7185ab5fd2146eb4d3d}
+    - {name: LSUI_split.zip, gdrive_id: 1M8CxfoeJaH_MCSQRhYxw4MtbaZ87OMYS,
+       sha256: 7918d93ccea877f96f19af59d29b116a26d9e536ca46bdffda28c186107f16e5}
+  expected:
+    - {subset: input, path: LSUI/LSUI/input, count: 4279}
+    - {subset: reference, path: LSUI/LSUI/GT, count: 4279}
+    - {subset: official_train, path: LSUI_split/LSUI/train, count: 3879}
+    - {subset: official_test, path: LSUI_split/LSUI/test, count: 400}
+  published: 2023-05  # survey ref [213], IEEE TIP, May 2023
+  # Inputs are read from the official split folders (byte-identical to LSUI/LSUI/input).
+  samples:
+    - {split: trainval, roles: {input: LSUI_split/LSUI/train, reference: LSUI/LSUI/GT}}
+    - {split: test, roles: {input: LSUI_split/LSUI/test, reference: LSUI/LSUI/GT}}
+
+euvp:
+  name: EUVP
+  full_name: Enhancing Underwater Visual Perception (paired subsets)
+  task: enhancement (paired)
+  survey_ref: "[211]"
+  citation: "M. J. Islam, Y. Xia, J. Sattar, Fast underwater image enhancement for improved visual perception, IEEE RA-L, vol. 5, no. 2, pp. 3227-3234, 2020"
+  homepage: https://irvlab.cs.umn.edu/resources/euvp-dataset
+  license_page: https://irvlab.cs.umn.edu/resources/euvp-dataset
+  license: No license stated on the official page.
+  license_status: TODO(verify)
+  access: manual
+  sources: [https://irvlab.cs.umn.edu/resources/euvp-dataset]
+  checked: 2026-11-15
+  notes: >-
+    The official Google Drive folder
+    https://drive.google.com/drive/folders/1ZEql33CajGfHHzPe1vFxUFCMcP0YbZb3 returned
+    HTTP 404 on 2026-11-15. The reference copy (SHA-256 below) is an UNOFFICIAL mirror:
+    its dataset-metadata.json identifies the Kaggle dataset "pamuduranasinghe/euvp-dataset",
+    whose uploader declares CC0-1.0; that is the uploader's label, not the authors'
+    license. TODO(verify): maintainer to confirm this source. The paired folder counts of
+    this copy equal the official statistics (training pairs / validation / total images):
+    Underwater Dark 5550 / 570 / 11670; Underwater ImageNet 3700 / 1270 / 8670;
+    Underwater Scenes 2185 / 130 / 4500. The copy also holds Unpaired/, eval_data/ and
+    test_samples/ (515 Inp / 515 GTr; count read from the copy, not stated officially).
+  manual_instructions: >-
+    The official link is dead. Either obtain the archive from the authors (IRVLab page),
+    or download the unofficial Kaggle mirror
+    https://www.kaggle.com/datasets/pamuduranasinghe/euvp-dataset (requires a Kaggle
+    account). Save it as datasets/euvp/archives/euvp.zip, then run
+    "uwbench download euvp --accept-license", which checks the SHA-256 and extracts it.
+  files:
+    - {name: euvp.zip, sha256: 6f8f23c5b4a966db1115328aa49386458db9e163bc69d2b2eb78c2090340f7c6}
+  expected:
+    - {subset: dark_trainA, path: euvp/EUVP/Paired/underwater_dark/trainA, count: 5550}
+    - {subset: dark_trainB, path: euvp/EUVP/Paired/underwater_dark/trainB, count: 5550}
+    - {subset: dark_validation, path: euvp/EUVP/Paired/underwater_dark/validation, count: 570}
+    - {subset: imagenet_trainA, path: euvp/EUVP/Paired/underwater_imagenet/trainA, count: 3700}
+    - {subset: imagenet_trainB, path: euvp/EUVP/Paired/underwater_imagenet/trainB, count: 3700}
+    - {subset: imagenet_validation, path: euvp/EUVP/Paired/underwater_imagenet/validation, count: 1270}
+    - {subset: scenes_trainA, path: euvp/EUVP/Paired/underwater_scenes/trainA, count: 2185}
+    - {subset: scenes_trainB, path: euvp/EUVP/Paired/underwater_scenes/trainB, count: 2185}
+    - {subset: scenes_validation, path: euvp/EUVP/Paired/underwater_scenes/validation, count: 130}
+    - {subset: test_samples_input, path: euvp/EUVP/test_samples/Inp, count: 515}
+    - {subset: test_samples_reference, path: euvp/EUVP/test_samples/GTr, count: 515}
+  published: 2020-04  # survey ref [211], IEEE RA-L, Apr. 2020
+  # Only the three paired training sets: validation/ holds unpaired inputs, and
+  # test_samples/ is not described on the official page.
+  samples:
+    - prefix: underwater_dark
+      roles: {input: euvp/EUVP/Paired/underwater_dark/trainA, reference: euvp/EUVP/Paired/underwater_dark/trainB}
+    - prefix: underwater_imagenet
+      roles: {input: euvp/EUVP/Paired/underwater_imagenet/trainA, reference: euvp/EUVP/Paired/underwater_imagenet/trainB}
+    - prefix: underwater_scenes
+      roles: {input: euvp/EUVP/Paired/underwater_scenes/trainA, reference: euvp/EUVP/Paired/underwater_scenes/trainB}
+
+suim:
+  name: SUIM
+  full_name: Segmentation of Underwater IMagery
+  task: semantic segmentation (8 classes)
+  survey_ref: "[219]"
+  citation: "M. J. Islam et al., Semantic segmentation of underwater imagery: Dataset and benchmark, IROS 2020, pp. 1769-1776"
+  homepage: https://irvlab.cs.umn.edu/resources/suim-dataset
+  license_page: https://irvlab.cs.umn.edu/resources/suim-dataset
+  license: >-
+    No dataset license stated on the official page. The GitHub repository
+    (https://github.com/IRVLab/SUIM) is MIT-licensed, which covers the code only.
+  license_status: TODO(verify)
+  access: gdrive
+  sources:
+    - https://irvlab.cs.umn.edu/resources/suim-dataset
+    - https://github.com/IRVLab/SUIM
+  checked: 2026-11-15
+  notes: >-
+    Official test split is TEST/ (110 samples); train_val/ has 1525 samples. The 5.2 GB
+    archive also holds Benchmark_Evaluation/ and Checkpoint_Data/, which are not used.
+  files:
+    - {name: SUIM.zip, gdrive_id: 1uEnlqKrlt6lITc_i80NTtb7iHGcO47sU,
+       sha256: a635d600081daea4cd5796c421a2730c23fd7552187bf7c9f37f1f0787fdd909}
+  expected:
+    - {subset: train_val_images, path: SUIM/train_val/images, count: 1525}
+    - {subset: train_val_masks, path: SUIM/train_val/masks, count: 1525}
+    - {subset: test_images, path: SUIM/TEST/images, count: 110}
+    - {subset: test_masks, path: SUIM/TEST/masks, count: 110}
+  published: 2020-10  # survey ref [219], IROS, Oct. 2020
+  samples:
+    - {split: trainval, roles: {image: SUIM/train_val/images, mask: SUIM/train_val/masks}}
+    - {split: test, roles: {image: SUIM/TEST/images, mask: SUIM/TEST/masks}}
+
+trashcan:
+  name: TrashCan
+  full_name: TrashCan 1.0
+  task: instance segmentation / detection (marine debris)
+  survey_ref: "[222]"
+  citation: "J. Hong, M. Fulton, J. Sattar, TrashCan 1.0: An instance-segmentation labeled dataset of trash observations, Data Repository for U of M, 2020, doi:10.13020/g1gx-y834"
+  homepage: https://hdl.handle.net/11299/214865
+  license_page: https://hdl.handle.net/11299/214865
+  license: >-
+    "Free for academic teaching/research use, must obtain JAMSTEC permission for
+    commercial use. See LICENSE.txt for further information" (DataCite rights field).
+  license_status: TODO(verify)
+  access: manual
+  sources: [https://api.datacite.org/dois/10.13020/g1gx-y834]
+  checked: 2026-11-15
+  notes: >-
+    7,212 images, two versions (TrashCan-Material and TrashCan-Instance) according to the
+    DataCite description. The repository page sits behind a bot check, so it cannot be
+    fetched automatically. The archive itself contains no LICENSE.txt (README files only).
+    Official train/val splits (COCO JSON): instance version 6065 / 1147, material version
+    6008 / 1204; original_data/ holds 7212 images with per-image Supervisely JSON.
+  manual_instructions: >-
+    Open https://hdl.handle.net/11299/214865 in a browser, read LICENSE.txt, download the
+    dataset archive (images and labels, not the checkpoints), save it as
+    datasets/trashcan/archives/TrashCan.zip, then run
+    "uwbench download trashcan --accept-license", which checks the SHA-256 and extracts it.
+  files:
+    - {name: TrashCan.zip, sha256: caf93d992b85343cfc500386c94ca9ffa6c63e2284e04127753a40db8f33ba4c}
+  expected:
+    - {subset: instance_train, path: TrashCan/dataset/instance_version/train, count: 6065}
+    - {subset: instance_val, path: TrashCan/dataset/instance_version/val, count: 1147}
+    - {subset: material_train, path: TrashCan/dataset/material_version/train, count: 6008}
+    - {subset: material_val, path: TrashCan/dataset/material_version/val, count: 1204}
+    - {subset: original_images, path: TrashCan/dataset/original_data/images, count: 7212}
+    - {subset: original_annotations, path: TrashCan/dataset/original_data/annotations, count: 7212}
+  published: 2020-07  # survey ref [222], arXiv:2007.08097, July 2020
+  # Instance version; annotations are in instances_{train,val}_trashcan.json (COCO).
+  # The official train/val split is NOT used: 113 of the 115 source videos of its val set
+  # also appear in its train set (frame names vid_<video>_frame<k>). The benchmark splits
+  # TrashCan by video instead (configs/splits.yaml, split_unit). The folder of each image
+  # (train/ or val/) tells which official COCO JSON holds its annotations.
+  samples:
+    - {roles: {image: TrashCan/dataset/instance_version/train}}
+    - {roles: {image: TrashCan/dataset/instance_version/val}}
+
+uicd:
+  name: UICD
+  full_name: Underwater Image Captioning Dataset
+  task: image captioning (5 captions per image)
+  survey_ref: "[228]"
+  citation: "H. Li, H. Wang, Y. Zhang, L. Li, P. Ren, Underwater image captioning: Challenges, models, and datasets, ISPRS J. Photogramm. Remote Sens., vol. 220, pp. 440-453, 2025"
+  homepage: https://gitee.com/LHY-CODE/UICD
+  license_page: https://gitee.com/LHY-CODE/UICD
+  license: >-
+    README "Dataset Use and Disclaimer": images "were gathered from publicly available
+    sources on the internet and are provided exclusively for academic and research
+    purposes." The repository's MIT license covers the repository content, not the image
+    copyrights.
+  license_status: TODO(verify)
+  access: gdrive
+  sources: [https://gitee.com/LHY-CODE/UICD]
+  checked: 2026-11-15
+  notes: >-
+    3,176 images resized to 224x224, 5 captions each (README). Baidu mirror
+    https://pan.baidu.com/s/1tZqq947wB_Julr5moJILsQ (extraction code 8o30).
+    Link between this repository and survey reference [228] TODO(verify).
+  files:
+    - {name: UICD.zip, gdrive_id: 1Fs2-k35Al4OkzoUngbV-sQlV8oETYQYy,
+       sha256: a417c0af633053c8852a4ac2fac9a51639a4f6c2e15bdf4f6d66c052a9615a02}
+  expected:
+    # Captions: UIC-captions.txt, 15,880 lines "<image>#<k> <caption>" (3176 x 5).
+    - {subset: images_224, path: "UICD/UIC(underwater image captioning dataset)/uic_224x224_image", count: 3176}
+    - {subset: images_raw, path: "UICD/UIC(underwater image captioning dataset)/uic_raw_image", count: 3176}
+    - {subset: captions, path: "UICD/UIC(underwater image captioning dataset)", count: 1}
+  published: 2025-02  # survey ref [228], ISPRS J. Photogramm. Remote Sens., Feb. 2025
+  samples:
+    - roles:
+        image: "UICD/UIC(underwater image captioning dataset)/uic_raw_image"
+        image_224: "UICD/UIC(underwater image captioning dataset)/uic_224x224_image"

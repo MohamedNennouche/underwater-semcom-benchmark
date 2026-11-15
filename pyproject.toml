@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "underwater-semcom-benchmark"
+version = "0.1.0.dev0"
+description = "Reference evaluation protocol for underwater semantic communications (acoustic and optical)."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+# Dependencies are added phase by phase, only when the code that needs them exists.
+dependencies = [
+    "numpy>=2.0",  # np.bitwise_count for Hamming distances
+    "scipy>=1.10",
+    "torch>=2.1",
+    "pyyaml>=6.0",
+    "gdown>=5.1",
+    "pillow>=10.0",
+    "imagehash>=4.3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4", "ruff>=0.5"]
+
+[project.scripts]
+uwbench = "uwbench.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["uwbench*"]
+
+[tool.setuptools.package-data]
+uwbench = ["data/registry.yaml", "data/manifests/*.csv"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "NPY"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

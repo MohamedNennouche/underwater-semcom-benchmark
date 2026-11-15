@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+
+# Third-party data is never committed (rule 1). Downloaded datasets live here.
+/datasets/
+# Evaluation outputs and checkpoints
+/results/
+/checkpoints/
+/runs/
+
+# Manuscript under review
+*.pdf
