@@ -1,0 +1,11 @@
+# Optical IM/DD link (uwbench/channels/uwoc.py). Attenuation c from Table III of the
+# survey (configs/uwoc_water.yaml). SNR = transmit electrical SNR; received SNR =
+# SNR * h^2 (Beer-Lambert loss alone: 26.5 dB).
+# TODO(verify): distance are benchmark choices to be confirmed by the maintainers.
+name: uwoc_coastal
+channel: uwoc
+params:
+  water_type: coastal_ocean
+  distance_m: 10
+
+snr_db: {start: -5, stop: 50, step: 5}

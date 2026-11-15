@@ -19,6 +19,7 @@ part of version 1.0.
 | `suim` | SUIM | semantic segmentation | [219] | automatic (Google Drive) | none stated (code is MIT) |
 | `trashcan` | TrashCan 1.0 | instance segmentation / detection | [222] | **manual** (bot check) | free for academic teaching/research use; JAMSTEC permission for commercial use |
 | `uicd` | UICD | image captioning | [228] | automatic (Google Drive) | images provided exclusively for academic and research purposes |
+| `watermark` | Watermark V1 (acoustic channel archive, not images) | channel replay | [248] | **manual** (free download from FFI) | "Free download"; no license text |
 
 Exact wording, Baidu mirrors, sizes, and the date each source was checked are in
 [`uwbench/data/registry.yaml`](uwbench/data/registry.yaml).
@@ -60,6 +61,8 @@ empty files, which `verify` reports.
 - **TrashCan.** Open <https://hdl.handle.net/11299/214865> in a browser, read
   `LICENSE.txt`, and download the dataset archive (images and labels, not the
   checkpoints). Save it as `datasets/trashcan/archives/TrashCan.zip`.
+- **Watermark.** Download `WatermarkV1.zip` from <https://www.ffi.no/en/research/watermark>
+  and save it as `datasets/watermark/archives/WatermarkV1.zip`.
 
 Then run `uwbench download <key> --accept-license`, which checks the SHA-256 and extracts
 the archive, followed by `uwbench verify <key>`.

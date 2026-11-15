@@ -1,0 +1,22 @@
+# Modelled acoustic link, 1 km, OFDM with perfect CSI (uwbench/channels/uac.py).
+# Band 10-18 kHz: one of the three Watermark bands (van Walree et al., IEEE JOE 2017).
+# Delay spread with 4 reflections: 412 taps (51 ms) <= cp_length.
+# TODO(verify): geometry, wind, reflection coefficients and residual CFO are benchmark
+# choices to be confirmed by the maintainers, not measured values.
+name: uac_modeled_short
+channel: uac_ofdm
+params:
+  geometry: {range_m: 1000, water_depth_m: 100, tx_depth_m: 50, rx_depth_m: 50}
+  fc_hz: 14000.0
+  bandwidth_hz: 8000.0
+  n_subcarriers: 1024
+  cp_length: 512
+  spreading_k: 1.5        # practical spreading (Stojanovic 2007)
+  shipping: 0.5           # shipping activity in [0, 1]
+  wind_mps: 5.0
+  max_reflections: 4
+  surface_coeff: -1.0     # pressure-release surface
+  bottom_coeff: 0.5
+  sound_speed_mps: 1500.0
+  cfo_std: 0.01           # residual CFO, std in subcarrier spacings
+snr_db: {start: -5, stop: 25, step: 5}

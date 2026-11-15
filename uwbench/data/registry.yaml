@@ -260,3 +260,40 @@ uicd:
     - roles:
         image: "UICD/UIC(underwater image captioning dataset)/uic_raw_image"
         image_224: "UICD/UIC(underwater image captioning dataset)/uic_224x224_image"
+
+watermark:
+  name: Watermark
+  full_name: Watermark benchmark for underwater acoustic modulation schemes (V1.0)
+  task: acoustic channel replay (measured time-varying impulse responses)
+  survey_ref: "[248]"
+  citation: "P. van Walree, F.-X. Socheleau, R. Otnes, T. Jenserud, The Watermark benchmark for underwater acoustic modulation schemes, IEEE JOE, vol. 42, no. 4, pp. 1007-1018, 2017"
+  homepage: https://www.ffi.no/en/research/watermark
+  license_page: https://www.ffi.no/en/research/watermark
+  license: >-
+    The FFI page states "Free download of the WatermarkV1 is available as a zipped
+    file". No license text on the page or in doc/readme.txt.
+  license_status: TODO(verify)
+  access: manual
+  sources:
+    - https://www.ffi.no/en/research/watermark
+    - https://www.ffi.no/en/publications-archive/the-watermark-manual-and-users-guide-version-1.0
+  checked: 2026-11-15
+  notes: >-
+    Channel archive, not an image dataset (no samples, not deduplicated or split).
+    770 MB zip, 339 entries. Channels (doc/readme.txt): NOF1 Oslofjord and NCS1
+    continental shelf (10-18 kHz, single hydrophone, 60 files each), BCH1 Brest
+    harbour (32.5-37.5 kHz, 4 hydrophones), KAU1 and KAU2 Kauai (4-8 kHz, 16
+    hydrophones). File format: see uwbench/channels/watermark.py. The full manual is
+    FFI-rapport 2016/01378 (not in the archive).
+  manual_instructions: >-
+    Download WatermarkV1.zip from https://www.ffi.no/en/research/watermark, save it as
+    datasets/watermark/archives/WatermarkV1.zip, then run
+    "uwbench download watermark --accept-license", which checks the SHA-256 and extracts it.
+  files:
+    - {name: WatermarkV1.zip, sha256: 3cf9e3a9b116b525f9b52c098018383665ca24f3a9ab05bc53b7716b1b3c5cc1}
+  expected:
+    - {subset: NOF1, path: WatermarkV1/Watermark/input/channels/NOF1/mat, count: 60}
+    - {subset: NCS1, path: WatermarkV1/Watermark/input/channels/NCS1/mat, count: 60}
+    - {subset: BCH1, path: WatermarkV1/Watermark/input/channels/BCH1/mat, count: 4}
+    - {subset: KAU1, path: WatermarkV1/Watermark/input/channels/KAU1/mat, count: 16}
+    - {subset: KAU2, path: WatermarkV1/Watermark/input/channels/KAU2/mat, count: 16}

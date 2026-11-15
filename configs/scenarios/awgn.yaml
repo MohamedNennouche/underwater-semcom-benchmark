@@ -1,0 +1,4 @@
+# Control reference: complex AWGN. SNR = E|x|^2 / sigma^2 per complex symbol.
+name: awgn
+channel: awgn
+snr_db: {start: -5, stop: 25, step: 5}

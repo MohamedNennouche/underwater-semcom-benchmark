@@ -2,8 +2,8 @@
 
 This file specifies the reference evaluation protocol. It is the source for the
 "Reference evaluation protocol" table of the survey (Section VII-C). Sections are added
-as the corresponding components are implemented and tested. Channels, metrics, the
-separation baseline and reporting are not specified here yet.
+as the corresponding components are implemented and tested. Metrics, the separation
+baseline and reporting are not specified here yet.
 
 ## 1. Datasets
 
@@ -140,3 +140,141 @@ matches the files in `splits/`.
 | `uieb_test.csv` | `5a114ba0691874e3140b3f50ca0edffc3c45689837743e9f0cf265bb0caff6c5` |
 | `uieb_train.csv` | `2b122792f42064dfbca70923972b4d2b2a71f7f3b09c1a638ed416011b49fadf` |
 | `uieb_val.csv` | `1197a13afafce683f9653927734d3c0ff6eee396cf33b64dfe3402ee8d876bbb` |
+
+## 3. Reference channels
+
+Code: [`uwbench/channels/`](uwbench/channels/). Scenarios:
+[`configs/scenarios/`](configs/scenarios/). Each channel implements
+`forward(x, snr_db, rng) -> y` once in PyTorch. It is differentiable for training, and
+calling it on NumPy arrays gives the evaluation mode. All randomness comes from an
+explicit `numpy.random.Generator`.
+
+**Conventions**
+- Symbols are `(B, n)`, one row per image.
+- Acoustic and AWGN channels take complex baseband symbols, normalised to `E|x|² = 1`
+  per row.
+- Optical channels take real non-negative intensities, normalised to unit mean optical
+  power per row.
+- Channels return symbols after perfect-CSI compensation.
+- `snr_db` may be a scalar, one value per row, or `None` (noiseless).
+
+### 3.1 AWGN (control)
+
+- Model: y = x + n, with n ~ CN(0, σ²).
+- SNR = E|x|² / σ² = 1/σ².
+
+### 3.2 Modelled acoustic channel with OFDM (`uac_ofdm`)
+
+Formulas: Lucani, Médard and Stojanovic, arXiv:0801.0426, eqs. (1)–(8), citing
+Stojanovic, WUWNet 2006 / ACM MC2R 2007. They are consistent with eq. (1) of the survey.
+
+- **Path loss:** A(l, f) = l^k a(f)^l, with l in km and k = 1.5.
+- **Absorption (Thorp):** 10 log a(f) = 0.11 f²/(1+f²) + 44 f²/(4100+f²) + 2.75·10⁻⁴ f²
+  + 0.003, in dB/km, with f in kHz.
+- **Ambient noise:** in dB re µPa/Hz, the four components below are summed in linear
+  power:
+  - 10 log N_t = 17 − 30 log f;
+  - 10 log N_s = 40 + 20(s − 0.5) + 26 log f − 60 log(f + 0.03);
+  - 10 log N_w = 50 + 7.5 √w + 20 log f − 40 log(f + 0.4);
+  - 10 log N_th = −15 + 20 log f.
+- **Multipath:** image method in an isovelocity waveguide (pressure-release surface,
+  reflecting bottom).
+  - Paths have at most `max_reflections` bounces.
+  - Each path has amplitude r_s^{n_s} r_b^{n_b} / √A(l_p, f_c), delay l_p / c and an
+    independent uniform phase per realisation.
+  - Delays are rounded to the nearest sample, and the response is normalised to unit
+    energy.
+  - **This simplified model does not replace Bellhop**: there is no sound-speed profile,
+    no per-path frequency dependence, and no variation within a transmission.
+- **OFDM:**
+  - N subcarriers with a unitary IFFT/FFT.
+  - The cyclic prefix must be at least the delay spread; this is checked when the channel
+    is built.
+  - Subcarrier k has noise variance σ² c_k, where c_k = A(R, f_k)N(f_k) /
+    mean(A N).
+  - Equalisation is a one-tap MMSE with perfect CSI. Pilot-based estimation is a `TODO`.
+- **Doppler:** only a residual frequency offset per OFDM symbol, ε ~ N(0, cfo_std²) in
+  subcarrier spacings. Wideband time compression is out of scope in version 1.0.
+- **SNR:** the average received SNR per subcarrier, 1/σ². The magnitude of the path
+  loss is absorbed in the SNR; its frequency dependence shapes c_k.
+
+### 3.3 Optical IM/DD channel (`uwoc`)
+
+y = h s + n, with h = h_l h_a h_p (block fading per image). The receiver returns
+r = y / h (perfect CSI).
+
+- **Attenuation h_l = exp(−c d):** Beer–Lambert, eq. (2) of the survey. The coefficient
+  c comes from Table III ([`configs/uwoc_water.yaml`](configs/uwoc_water.yaml), 532 nm):
+  clear ocean 0.15, coastal ocean 0.305, turbid harbor 2.17 m⁻¹. Pure water is not in
+  Table III.
+- **Turbulence h_a, with E[h_a] = 1:**
+  - log-normal: h_a = exp(2X), X ~ N(−σ², σ²), σ² = ln(1 + SI)/4;
+  - Gamma-Gamma: SI = 1/α + 1/β + 1/(αβ).
+- **Pointing h_p:** Farid and Hranilovic (JLT 2007), h_p = A₀ exp(−2r²/w²_zeq), with a
+  Rayleigh-distributed radial displacement r.
+- **Receiver noise:** Gaussian, with variance σ²_th (1 + ζ h s). Here ζ is the ratio of
+  shot to thermal noise variance; ζ = 0 means thermal noise only.
+- **IM/DD constraints:**
+  - the input must be non-negative, and the channel rejects it otherwise;
+  - the mean optical power is normalised to 1;
+  - analog symbols are mapped by DC bias and clipping, `bias_and_clip`.
+- **SNR:** the transmit electrical SNR, 1/σ²_th. The received SNR is SNR · h², so water
+  type, distance, turbulence and pointing shift the curves as in a link budget.
+
+### 3.4 Scenarios
+
+| Scenario | Channel | Main parameters | SNR grid (dB) |
+| --- | --- | --- | --- |
+| `awgn` | AWGN | — | −5 : 5 : 25 |
+| `uac_modeled_short` | `uac_ofdm` | 1 km, 10–18 kHz band (f_c 14 kHz, B 8 kHz), N 1024, CP 512, depth 100 m, wind 5 m/s, s 0.5, CFO std 0.01 | −5 : 5 : 25 |
+| `uac_modeled_long` | `uac_ofdm` | 5 km, 4–8 kHz band (f_c 6 kHz, B 4 kHz), N 256, CP 64, otherwise as above | −5 : 5 : 25 |
+| `uwoc_clear` | `uwoc` | clear ocean, 20 m (Beer–Lambert loss 26.1 dB) | −5 : 5 : 50 |
+| `uwoc_coastal` | `uwoc` | coastal ocean, 10 m (26.5 dB) | −5 : 5 : 50 |
+| `uwoc_turbid` | `uwoc` | turbid harbor, 2 m (37.7 dB) | −5 : 5 : 50 |
+| `uwoc_turbulence_weak` | `uwoc` | clear ocean, 20 m, log-normal SI 0.1 | −5 : 5 : 50 |
+| `uwoc_turbulence_moderate` | `uwoc` | clear ocean, 20 m, Gamma-Gamma α = β = 4 (SI 0.5625) | −5 : 5 : 50 |
+| `uwoc_pointing` | `uwoc` | clear ocean, 20 m, aperture radius 5 cm, beam radius 20 cm, jitter 5 cm | −5 : 5 : 50 |
+
+The acoustic bands are the three Watermark bands (van Walree et al., IEEE JOE 2017).
+
+`TODO(verify)`, to be confirmed by the maintainers:
+- the scenario parameters that come neither from the survey nor from cited formulas:
+  distances, geometry, wind, reflection coefficients, residual CFO, scintillation
+  indices, pointing parameters;
+- the final SNR grids;
+- the Table III coefficients.
+
+### 3.5 Watermark replay (`watermark_ofdm`)
+
+Source: van Walree et al., IEEE JOE 2017 (survey ref. [248]). The data, `WatermarkV1.zip`
+from FFI, is not redistributed (see DATASETS.md).
+
+- **Channel files.** Each `.mat` holds a complex baseband time-varying impulse response
+  `h`, of size snapshots × K taps, with `fs_t = fs_tau / K`, plus `fc`, `V0` and
+  `meta.bandwidth`. This format was verified on the archive.
+- **Replay.** The replay ports `replayfilter.m` exactly:
+  y[k] = Σ_l x[k−l] g_p[l], with g_p = (1−f) h[n] + f h[n+1], n = ⌊p/K⌋ and f = p/K − n.
+  The tests check it against the MATLAB sample loop, on synthetic and real files.
+- **OFDM.**
+  - The signal is sampled at `fs_tau`, with N subcarriers in the channel band.
+  - The cyclic prefix is at least K − 1 samples, covering the whole recorded delay
+    window.
+  - Each image uses a random file and a random start time.
+- **Perfect CSI.** It is the diagonal of the channel matrix: the frequency response of
+  the TVIR averaged over each FFT window. Equalisation is a one-tap MMSE.
+- **Normalisation and noise.**
+  - Each file is normalised to unit mean energy.
+  - White noise is added at the requested SNR, defined as for 3.2. The recorded ambient
+    noise is not replayed.
+  - `V0` is not used, which is `TODO(verify)`: it is described in FFI-rapport
+    2016/01378.
+- **Time variation, measured.**
+  - NOF1 snapshots correlate at 0.89 at 128 ms; NCS1 snapshots at 0.78 at 32 ms.
+  - With the shortest symbols the NOF1 window allows (N = 1024, 128 ms), OFDM with
+    perfect CSI reaches an NMSE of −9.2 dB without noise and −11.6 dB at 25 dB SNR.
+  - This interference floor is a property of the measured channel. It is the reason a
+    replayed channel is harder than the modelled one.
+
+| Scenario | Channel | Main parameters | SNR grid (dB) |
+| --- | --- | --- | --- |
+| `uac_watermark_nof1` | `watermark_ofdm` | NOF1 (Oslofjord, 10–18 kHz), N 1024, CP 2048 samples at 16 kHz | −5 : 5 : 25 |

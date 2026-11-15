@@ -66,7 +66,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         from uwbench.data.registry import load_registry
 
         cfg = yaml.safe_load(args.config.read_text(encoding="utf-8"))
-        keys = args.datasets or list(load_registry())
+        # image datasets only: entries without samples (e.g. Watermark channels) are skipped
+        keys = args.datasets or [k for k, e in load_registry().items() if "samples" in e]
         if args.command == "dedup":
             from uwbench.data.dedup import run_dedup
 
