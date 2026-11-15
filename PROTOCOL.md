@@ -2,8 +2,8 @@
 
 This file specifies the reference evaluation protocol. It is the source for the
 "Reference evaluation protocol" table of the survey (Section VII-C). Sections are added
-as the corresponding components are implemented and tested. Metrics, the separation
-baseline and reporting are not specified here yet.
+as the corresponding components are implemented and tested. The separation baseline
+and reporting are not specified here yet.
 
 ## 1. Datasets
 
@@ -278,3 +278,60 @@ from FFI, is not redistributed (see DATASETS.md).
 | Scenario | Channel | Main parameters | SNR grid (dB) |
 | --- | --- | --- | --- |
 | `uac_watermark_nof1` | `watermark_ofdm` | NOF1 (Oslofjord, 10–18 kHz), N 1024, CP 2048 samples at 16 kHz | −5 : 5 : 25 |
+
+## 4. Metrics
+
+Code: [`uwbench/metrics/`](uwbench/metrics/). Every metric returns one value per image.
+The dataset aggregate is the mean over images; its 95 % confidence interval comes with
+the evaluation engine.
+
+### 4.1 Fidelity (`fidelity.py`)
+
+Reconstructions are clamped to [0, 1] and scored in float, without 8-bit quantisation.
+
+- **PSNR**
+  - Per image: 10 log₁₀(1 / MSE), with the MSE over all pixels and colour channels and a
+    data range of 1. Averaged over images, not computed from the mean MSE.
+  - Identical images give the documented ceiling of **100 dB** instead of infinity, so
+    the means stay finite.
+- **MS-SSIM**
+  - Wang, Simoncelli and Bovik, Asilomar 2003, via `pytorch_msssim` with its defaults:
+    window 11, σ = 1.5, and the five scale weights of the paper.
+  - The five scales need both image sides to be at least **161 px**, and smaller images
+    are rejected. All test images of the six datasets meet this; the smallest side found
+    is 168 px, in UIEB.
+- **LPIPS**
+  - Zhang et al., CVPR 2018, `lpips` 0.1.4 with the **AlexNet** backbone, as in the
+    literature. Inputs are mapped to [−1, 1]. Lower is better.
+
+### 4.2 Rate (`rate.py`)
+
+- **Digital schemes:** bits per pixel, bpp = n_bits / (H W), measured on the actual
+  codestream.
+- **Analog schemes:** bandwidth ratio ρ = k / n, where n = C H W source components and k
+  channel uses per image. This follows Bourtsoulatze et al., TCCN 2019 (survey ref.
+  [55]).
+  - A channel use is one complex symbol on the AWGN and acoustic channels.
+  - It is one real symbol on the optical IM/DD channel.
+- **Conversion:** a digital scheme carrying η information bits per channel use (code
+  rate × bits per modulation symbol) needs k = bpp H W / η channel uses. Hence
+  **ρ = bpp / (C η)** and **bpp = ρ C η**. For example, 0.5 bpp with QPSK and a rate-1/2
+  code on RGB images gives ρ = 1/6.
+
+### 4.3 Complexity (`complexity.py`)
+
+- **Parameters:** the number of model parameters.
+- **FLOPs per image:** from `torch.utils.flop_counter.FlopCounterMode`, where one
+  multiply-add counts as 2 FLOPs. Matrix products and convolutions are covered;
+  elementwise operations are not.
+- **Latency:** the wall-clock inference time, as mean, standard deviation and median
+  over repeated runs after warm-up, with CUDA synchronisation. It is always reported
+  with the platform: OS, Python, PyTorch, CPU, threads and GPU.
+
+### 4.4 Task metric (deferred)
+
+The optional mIoU on SUIM needs a frozen, public, pre-trained segmenter. The only
+official one found is SUIM-Net. Its checkpoints ship as Keras/TensorFlow `.hdf5` files
+in the SUIM archive (`Checkpoint_Data/`). Using them would add a TensorFlow dependency,
+and no verified PyTorch port exists. The task metric is therefore **not part of version
+1.0**.

@@ -19,6 +19,9 @@ dependencies = [
     "gdown>=5.1",
     "pillow>=10.0",
     "imagehash>=4.3",
+    "torchvision>=0.16",  # AlexNet backbone of LPIPS
+    "pytorch-msssim>=1.0",
+    "lpips>=0.1.4",
 ]
 
 [project.optional-dependencies]
