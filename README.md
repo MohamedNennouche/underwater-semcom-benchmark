@@ -70,20 +70,32 @@ for sc in uac_modeled_short uwoc_clear; do
   for sy in jpeg2000_ldpc ideal_separation; do
     uwbench evaluate --system configs/baselines/$sy.yaml \
                      --scenario configs/scenarios/$sc.yaml \
-                     --dataset uieb --split test --snr-step 1 --workers 3 --out results/uieb
+                     --dataset uieb --split test --out results/uieb
   done
 done
 uwbench report results/uieb/*.json --out results/uieb/report
 ```
 
-`--workers` sets the number of parallel image processes; each takes about 0.6 GB of RAM.
-Results do not depend on it.
+**Grid.** These commands use each scenario's grid (5 dB steps). Add `--snr-step 1` for
+a 1 dB grid over the same range; the step is recorded in the result JSON.
 
-On a laptop (RTX 500, 3 workers), these four runs over the 89 test images and 1 dB
-grids take about 70 minutes.
+**Long runs.** Each finished image is saved at once in `results/uieb/<run>.partial.jsonl`,
+and a progress line is printed. If a run is interrupted, re-running the same command
+resumes it.
 
-`--snr-step 1` refines the scenario grids, which use 5 dB steps; it is recorded in the
-result JSON.
+**Workers.** `--workers` sets the number of parallel image processes (about 0.6 to 1 GB
+of RAM each), and results do not depend on it. With LDPC decoding on a small GPU, keep
+the default of 1: three workers sharing a 4 GB GPU and 3 GB of free RAM were far slower
+than one.
+
+**Measured cost** (laptop RTX 500, 4 GB, 1 worker, 5 UIEB images of 0.45 Mpx,
+`uac_modeled_short` with its 31-point 1 dB grid):
+- about 70 s per image for `jpeg2000_ldpc` (3 modulations);
+- about 90 s per image for `ideal_separation`.
+
+UIEB test images average 0.63 Mpx. The estimate for the four runs over the 89 images is
+about 3 h with the scenario grids and about 14 h with 1 dB grids. A faster GPU mainly
+shortens the LDPC part.
 
 ## Evaluating your own model
 
