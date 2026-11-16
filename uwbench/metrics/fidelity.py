@@ -43,8 +43,8 @@ def _prepare(x: torch.Tensor, ref: torch.Tensor) -> tuple[torch.Tensor, torch.Te
 def psnr(x: torch.Tensor, ref: torch.Tensor) -> torch.Tensor:
     """Per-image PSNR in dB, capped at ``PSNR_MAX_DB``."""
     x, ref = _prepare(x, ref)
-    mse = (x - ref).square().flatten(1).mean(dim=1)
-    return (10 * torch.log10(1 / mse)).clamp(max=PSNR_MAX_DB)
+    mse = (x.double() - ref.double()).square().flatten(1).mean(dim=1)  # float64: stable sums
+    return (10 * torch.log10(1 / mse)).clamp(max=PSNR_MAX_DB).float()
 
 
 def ms_ssim(x: torch.Tensor, ref: torch.Tensor) -> torch.Tensor:

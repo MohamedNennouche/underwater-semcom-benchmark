@@ -4,7 +4,9 @@
   belief-propagation decoding from NVIDIA Sionna (``sionna-no-rt`` >= 2.2, PyTorch,
   Apache-2.0), an optional dependency used by this module only (``pip install
   .[baseline]``). Chosen as a maintained, standard-compliant implementation; no decoder
-  is re-implemented here. Default: ``k = 1024`` information bits, rate 1/2, 20 iterations.
+  is re-implemented here. Default: ``k = 1024`` information bits, rate 1/2, 20 iterations
+  (no early stopping in Sionna). Decoding dominates the run time of the baseline (~90 %
+  on one CPU thread), so it can run on a GPU (``device="cuda"``).
 * CRC: every codeword carries ``k - 32`` payload bits followed by their CRC-32
   (``zlib.crc32``, big-endian); a packet is accepted only if its CRC matches.
 * Modulation, Gray-labelled, unit mean power (complex) or unit mean intensity (optical):
@@ -91,18 +93,21 @@ def demap_llr(y: torch.Tensor, noise_var: torch.Tensor, name: str) -> torch.Tens
 class LDPC:
     """5G NR LDPC code from Sionna; see the module docstring."""
 
-    def __init__(self, k: int = 1024, rate: float = 0.5, num_iter: int = 20):
+    def __init__(self, k: int = 1024, rate: float = 0.5, num_iter: int = 20,
+                 device: str = "cpu"):
         from sionna.phy.fec.ldpc import LDPC5GDecoder, LDPC5GEncoder
 
-        self.k, self.n = k, round(k / rate)
-        self._enc = LDPC5GEncoder(k=self.k, n=self.n)
-        self._dec = LDPC5GDecoder(self._enc, num_iter=num_iter, hard_out=True)
+        device = "cuda:0" if device == "cuda" else device  # Sionna wants an indexed device
+        self.k, self.n, self.device = k, round(k / rate), device
+        self._enc = LDPC5GEncoder(k=self.k, n=self.n, device=device)
+        self._dec = LDPC5GDecoder(self._enc, num_iter=num_iter, hard_out=True, device=device)
 
     def encode(self, u: torch.Tensor) -> torch.Tensor:
-        return self._enc(u.float())
+        """Codewords on the CPU (inputs and outputs stay on the CPU whatever the device)."""
+        return self._enc(u.float().to(self.device)).cpu()
 
     def decode(self, llr: torch.Tensor) -> torch.Tensor:
-        return self._dec(llr.float())
+        return self._dec(llr.float().to(self.device)).cpu()
 
 
 def make_packets(data: bytes, n_packets: int, k: int) -> np.ndarray:

@@ -68,17 +68,30 @@ def encode_at_bpp(img: np.ndarray, codec: str, target_bpp: float) -> Encoded | N
             else:
                 hi = q - 1
         return best
-    # JPEG 2000: compression ratio, smaller is better; bisection on log(ratio)
-    lo, hi = np.log(1.0), np.log(10_000.0)
-    worst = encode(img, codec, np.exp(hi))
-    if bpp(worst) > target_bpp:
-        return None
-    best = Encoded(worst, bpp(worst), float(np.exp(hi)))
-    for _ in range(30):
+    # JPEG 2000: compression ratio r, smaller is better. OpenJPEG's rate control gives
+    # bpp ~ 8 C / r, so the bisection on log(r) starts from a bracket around that guess
+    # (widened while it does not bracket the target) and stops at 0.5 % precision on r:
+    # ~9 encodings instead of ~30 from the full range.
+    floor, ceil, step = 0.0, np.log(10_000.0), 0.4
+    guess = np.log(8 * img.shape[2] / max(target_bpp, 1e-9))
+    lo, hi = max(floor, guess - step), min(ceil, guess + step)
+    cache: dict[float, Encoded] = {}
+
+    def at(log_r: float) -> Encoded:
+        if log_r not in cache:
+            data = encode(img, codec, np.exp(log_r))
+            cache[log_r] = Encoded(data, bpp(data), float(np.exp(log_r)))
+        return cache[log_r]
+
+    while at(hi).bpp > target_bpp:  # hi must fit the budget
+        if hi >= ceil:
+            return None
+        lo, hi = hi, min(ceil, hi + step)
+    while lo > floor and at(lo).bpp <= target_bpp:  # lo must not fit (or be ratio 1)
+        hi, lo = lo, max(floor, lo - step)
+    if at(lo).bpp <= target_bpp:
+        return at(lo)
+    while hi - lo > 0.005:
         mid = (lo + hi) / 2
-        data = encode(img, codec, np.exp(mid))
-        if bpp(data) <= target_bpp:
-            best, hi = Encoded(data, bpp(data), float(np.exp(mid))), mid
-        else:
-            lo = mid
-    return best
+        lo, hi = (lo, mid) if at(mid).bpp <= target_bpp else (mid, hi)
+    return at(hi)

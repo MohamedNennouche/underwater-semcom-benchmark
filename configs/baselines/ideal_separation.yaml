@@ -1,0 +1,6 @@
+# Ideal separation bound: JPEG 2000 at bpp = rho C Cbar (channel capacity per use times
+# the bandwidth ratio), received without error. Not achievable (PROTOCOL.md 5.3).
+name: ideal_separation
+type: ideal_separation
+codec: jpeg2000
+bandwidth_ratio: 0.1666667

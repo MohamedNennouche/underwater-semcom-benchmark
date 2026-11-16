@@ -2,8 +2,7 @@
 
 This file specifies the reference evaluation protocol. It is the source for the
 "Reference evaluation protocol" table of the survey (Section VII-C). Sections are added
-as the corresponding components are implemented and tested. Reporting is not specified
-here yet.
+as the corresponding components are implemented and tested.
 
 ## 1. Datasets
 
@@ -410,3 +409,138 @@ include failures replace an undecoded image by a uniform mid-grey image (value 1
   applies the fallback.
 - The capacity probe matches log₂(1 + SNR) on AWGN and ½ log₂(1 + SNR h²) on the
   optical channel.
+
+## 6. Evaluation and reporting
+
+Code: [`uwbench/eval/`](uwbench/eval/).
+
+### 6.1 `uwbench evaluate`
+
+- **What is transmitted.** One system (`configs/baselines/*.yaml`) is run over the SNR grid
+  of one scenario (`configs/scenarios/*.yaml`), on one split of one dataset. The image
+  sent is the `input` role for paired datasets and the `image` role otherwise, and it is
+  scored against itself. `TODO(verify)`: whether the reference image of paired datasets
+  should be transmitted instead.
+- **Realisations.** `--realizations` independent channel draws are made per image and
+  SNR. The default is 1, and every draw is recorded.
+- **Seeds.** Image *i* uses `numpy.random.default_rng([seed, i])`, so results do not
+  depend on the number of worker processes. Only floating-point sums of the metrics may
+  differ in the last digits, which the CI test checks.
+- **Grid.** `--snr-step` refines the scenario grid over the same range; it is recorded.
+- **Speed.**
+  - Images run in parallel processes, with one thread each.
+  - The source encoding is computed once per (image, scheme).
+  - The JPEG 2000 rate search starts from the OpenJPEG rate estimate: about 10 encodings.
+  - Metrics are cached per distinct reconstruction.
+  - LDPC decoding runs on the GPU when available (`device: auto`).
+  - Reference figure: on a laptop (RTX 500, 3 workers), 89 UIEB test images, 31 SNR
+    points and 3 modulations take about 15 minutes.
+
+### 6.2 Result schema (version 1.0)
+
+`<out>/<system>_<scenario>_<dataset>_<split>.json` contains:
+
+- **Configuration:** `system` and `scenario` (full configurations), `dataset`, `split`,
+  `n_images`, `snr_db` (the grid used), `realizations`, `seed`, and `limit` (when a
+  subset was used).
+- **`results`:** one entry per (scheme, SNR).
+  - `n`.
+  - `failure_rate`: mean with a 95 % Wilson interval.
+  - `bpp`: achieved source rate of the decoded images.
+  - `bandwidth_ratio_used`: channel uses actually sent per source component.
+  - `metrics`: `psnr`, `ms_ssim` and `lpips`, each in two versions:
+    - `_all`: every transmission, with undecoded images scored on the fallback image;
+    - `_decoded`: decoded images only.
+    Each value has its mean and 95 % Student-t confidence interval over the
+    transmissions.
+  - Separation systems also get `ideal_adaptation`: at each SNR, the scheme with the best
+    mean `psnr_all`, named in `selected_scheme`.
+- **`provenance`:**
+  - git commit and whether the tree had uncommitted changes;
+  - uwbench version and library versions (NumPy, SciPy, PyTorch, torchvision, Pillow,
+    pytorch-msssim, lpips, Sionna, imagehash, PyYAML);
+  - platform: OS, Python, PyTorch, CPU, threads, GPU;
+  - UTC timestamp and command line.
+- **`per_image_csv`:** the file with one row per (scheme, SNR, realisation, image).
+
+### 6.3 `uwbench report`
+
+- **Grouping.** Result files are grouped by (scenario, dataset, split). Each system, bandwidth
+  ratio and scheme becomes one curve, so several rates and systems share the same axes.
+- **Figures.** Per group, a figure with four panels against SNR:
+  - PSNR, MS-SSIM and LPIPS including failures, each with its 95 % confidence band;
+  - the failure rate, on a linear axis.
+- **Tables.** Markdown (`report.md`) and LaTeX (`report.tex`, booktabs) tables of the
+  mean PSNR including failures and of the failure rate, per curve and SNR.
+
+## 7. Learned reference models
+
+Code: [`uwbench/models/`](uwbench/models/). Configurations:
+[`configs/models/`](configs/models/).
+
+### 7.1 Interface and transmission
+
+- **Interface.** A model implements `encode(x, snr_db) -> z`, a real latent, and
+  `decode(z_hat, snr_db) -> x_hat`, with the attributes `downsample` and `symbols`.
+- **Transmission** (`transmit`):
+  - the image is padded to a multiple of `downsample` (reflection), then cropped back;
+  - **complex symbols:** the flattened latent (f₁…f₂ₖ) gives the symbols fᵢ + j f_{k+i},
+    which the channel normalises to unit mean power;
+  - **real symbols (IM/DD):** s = max(0, 1 + m f / rms(f)), with m = 1 by default; the
+    bias is removed after the channel.
+- **Bandwidth ratio.** k/n = c·h·w / (2·3·H·W) for complex symbols, without the factor 2
+  for real ones. With ρ = 1/6: c = 16 for DeepJSCC and ADJSCC (downsampling 4), and
+  c = 256 for WITT (downsampling 16), with complex symbols.
+
+### 7.2 Models
+
+| Model | Source of the architecture | Parameters (k/n = 1/6, complex) |
+| --- | --- | ---: |
+| DeepJSCC | Bourtsoulatze et al., TCCN 2019 (Fig. 2); open choices from `chunbaobao/Deep-JSCC-PyTorch` (inspiration) | 0.16 M |
+| ADJSCC | Official code https://github.com/alexxu1988/ADJSCC (MIT), translated from TensorFlow | 10.8 M |
+| WITT | Official code https://github.com/KeYang8/WITT (high-resolution configuration), re-written | 28.3 M (28.2 M in the paper) |
+
+- **Licences.** The DeepJSCC and WITT repositories have no license. Their code was read
+  for its architecture and hyperparameters, but not copied. ADJSCC's code is MIT, so it
+  is translated directly with attribution.
+- **WITT, official choices kept** (where the paper differs or is silent):
+  - depths [2, 2, 6, 2] and heads [4, 6, 8, 10] in the encoder; the decoder mirrors them;
+  - no normalisation after the patch embedding, and a final LayerNorm;
+  - the Channel ModNet in its code form: M = 1.5·dim, Sigmoid SNR modulators, a
+    stop-gradient input, and a gated output x·σ(·);
+  - bias-free reverse merging;
+  - no output sigmoid, with a clamp to [0, 1] instead;
+  - truncated-normal initialisation.
+- **DeepJSCC, choices kept from the cited repository:**
+  - padding 2 and output padding 1;
+  - one PReLU parameter per layer;
+  - Kaiming/Xavier initialisation;
+  - Adam with lr 10⁻³, weight decay 5·10⁻⁴, and the learning rate halved on a plateau.
+- **ADJSCC:** GDN is re-implemented from Ballé et al., ICLR 2016, with the same formula and
+  initialisation as `tensorflow_compression`.
+- **Remaining differences:**
+  - power normalisation per image (the benchmark convention), where WITT normalises per
+    batch;
+  - padding of feature maps whose side is not a multiple of the window;
+  - single-stage training for WITT;
+  - training data and crops set by this protocol (§7.3).
+- **Claims.** No claim is made to reproduce the papers' numbers. Gaps are reported as
+  they are.
+
+### 7.3 Training (`uwbench train`)
+
+- **Data.** The `train` splits of LSUI, EUVP and UIEB, which share no duplicate with any
+  test split. Model selection uses the `val` splits.
+- **Inputs.** Random 128 × 128 crops with horizontal flips.
+- **Optimisation.** MSE loss and Adam, with the settings of each model's configuration
+  (DeepJSCC: lr 10⁻³, weight decay, plateau schedule; ADJSCC and WITT: lr 10⁻⁴).
+- **SNR.** The training SNR is drawn uniformly over the scenario's range. The channel is
+  the evaluation channel.
+- **Model selection.** Validation PSNR averaged over the scenario's SNR grid, with a
+  fixed seed; the best epoch is kept.
+- **Outputs.** `checkpoints/<model>_<scenario>/{best,last}.pt` and `log.csv`.
+- **Budget.** `TODO(verify)`: bandwidth ratios (1/6, 1/12), epochs and batch sizes
+  depend on the GPU budget. The current values fit a 4 GB laptop GPU.
+- **Planned runs.** `uwoc_clear`, `uwoc_turbulence_moderate` and `uac_modeled_short`,
+  plus a mismatch test (trained on `uwoc_clear`, tested on `uwoc_turbid` with
+  `--checkpoint`).

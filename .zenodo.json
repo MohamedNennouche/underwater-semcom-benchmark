@@ -1,0 +1,11 @@
+{
+  "title": "underwater-semcom-benchmark: reference evaluation protocol for underwater semantic communications",
+  "upload_type": "software",
+  "description": "Reference implementation of the evaluation protocol of the survey 'Enabling Intelligence in the Deep: A Comprehensive Survey of Semantic Communications for Underwater Wireless Systems' (Proceedings of the IEEE, submitted): reference acoustic and optical channels (including replay of the measured Watermark channels), frozen and deduplicated dataset splits, fidelity/rate/complexity metrics, a separate source-channel coding baseline (JPEG 2000 + 5G NR LDPC) with its ideal separation bound, and a common result format. No third-party data is redistributed.",
+  "license": "MIT",
+  "creators": [
+    {"name": "TODO(verify): author list"}
+  ],
+  "keywords": ["semantic communications", "underwater acoustic communications", "underwater wireless optical communications", "joint source-channel coding", "benchmark"],
+  "version": "1.0.0"
+}

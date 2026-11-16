@@ -1,0 +1,22 @@
+# Bourtsoulatze et al., TCCN 2019 [55]; optimiser settings of
+# https://github.com/chunbaobao/Deep-JSCC-PyTorch (inspiration): Adam, lr 1e-3, weight decay
+# 5e-4, learning rate halved on plateau (patience 15, min 1e-5).
+# Learned system for uwbench train / uwbench evaluate (PROTOCOL.md section 7).
+# TODO(verify): bandwidth ratio (1/6 or 1/12), epochs and batch size depend on the GPU
+# budget; values below fit a 4 GB laptop GPU and are not those of the paper.
+name: deepjscc
+type: learned
+model: uwbench.models.deepjscc:DeepJSCC
+params: {bandwidth_ratio: 0.1666667}
+checkpoint: checkpoints/deepjscc_{scenario}/best.pt
+modulation_index: 1.0  # optical channel: DC bias 1, s = max(0, 1 + m f / rms(f))
+train:
+  datasets: [lsui, euvp, uieb]
+  crop: 128
+  batch_size: 32
+  lr: 1.0e-3
+  weight_decay: 5.0e-4
+  scheduler: {type: plateau, factor: 0.5, patience: 15, min_lr: 1.0e-5}
+  epochs: 100
+  workers: 2
+  seed: 0

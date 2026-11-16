@@ -72,10 +72,11 @@ class SeparationScheme:
     """Source codec + LDPC + modulation; see the module docstring."""
 
     def __init__(self, modulation: str = "qpsk", code_rate: float = 0.5,
-                 codec: str = "jpeg2000", k: int = 1024, num_iter: int = 20):
+                 codec: str = "jpeg2000", k: int = 1024, num_iter: int = 20,
+                 device: str = "cpu"):
         self.modulation, self.codec = modulation, codec
         self.m = CONSTELLATIONS[modulation].bits_per_symbol
-        self.code = LDPC(k, code_rate, num_iter)
+        self.code = LDPC(k, code_rate, num_iter, device)
         if self.code.n % self.m:
             raise ValueError("codeword length must be a multiple of bits per symbol")
 

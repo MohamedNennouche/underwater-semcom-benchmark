@@ -31,7 +31,8 @@ def count_flops(fn: Callable[..., Any], *inputs: Any) -> int:
 
 def platform_info() -> dict[str, str]:
     info = {"os": platform.platform(), "python": platform.python_version(),
-            "torch": torch.__version__, "cpu": platform.processor() or platform.machine(),
+            "torch": str(torch.__version__),  # TorchVersion is not a plain str
+            "cpu": platform.processor() or platform.machine(),
             "threads": str(torch.get_num_threads())}
     if torch.cuda.is_available():
         info["gpu"] = torch.cuda.get_device_name()

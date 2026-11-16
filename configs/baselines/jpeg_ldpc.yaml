@@ -1,0 +1,6 @@
+# Same chain as jpeg2000_ldpc with JPEG (libjpeg) as source codec.
+name: jpeg_ldpc
+type: separation
+codec: jpeg
+bandwidth_ratio: 0.1666667
+ldpc: {k: 1024, num_iter: 20}
