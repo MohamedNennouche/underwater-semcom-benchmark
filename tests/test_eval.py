@@ -70,6 +70,26 @@ def test_results_do_not_depend_on_worker_count(separation_run):
     assert len(summary2["results"]) == len(separation_run[0]["results"])
 
 
+def test_interrupted_run_resumes_from_partial_file(tmp_path, separation_run, monkeypatch):
+    from uwbench.eval import runner
+
+    partial = tmp_path / "run.partial.jsonl"
+    images = synthetic_images()
+    full, _ = evaluate(SEPARATION, SCENARIO, images, seed=1, partial=partial)
+    lines = partial.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 1 + 3  # key + one line per image
+    partial.write_text("\n".join(lines[:3]) + "\n" + lines[3][:50], encoding="utf-8")  # cut
+    calls = []
+    real = runner.evaluate_image
+    monkeypatch.setattr(runner, "evaluate_image", lambda job: calls.append(job["index"])
+                        or real(job))
+    resumed, records = evaluate(SEPARATION, SCENARIO, images, seed=1, partial=partial)
+    assert calls == [2]  # only the image whose line was cut is recomputed
+    assert resumed["results"] == full["results"]
+    with pytest.raises(ValueError, match="another configuration"):
+        evaluate(SEPARATION, SCENARIO, images, seed=2, partial=partial)
+
+
 def test_ideal_bound_and_report(tmp_path, separation_run):
     ideal, ideal_records = evaluate(IDEAL, SCENARIO, synthetic_images(), seed=1)
     sep = by_key(separation_run[0])

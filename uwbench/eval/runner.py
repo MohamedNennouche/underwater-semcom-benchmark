@@ -16,12 +16,16 @@ on ``device``, ``auto`` = CUDA when available), ``type: ideal_separation``, or
 by ``model: "package.module:Class"``, ``params`` and ``checkpoint``; the whole image is
 transmitted, padded to a multiple of the model's downsampling factor).
 
-Speed: images are processed in parallel worker processes (one thread each); every
+Long runs: every finished image is saved at once to ``<stem>.partial.jsonl`` and an
+interrupted run resumes from it; one progress line is printed per image.
+
+Speed: images can be processed in parallel worker processes (one thread each); every
 image has its own generator ``default_rng([seed, image_index])``, so results do not
-depend on the number of workers. The source encoding of an image is computed once per
-scheme and reused across SNRs and realisations; metrics are cached per distinct
-reconstruction (all failures share the fallback image; a decoded codestream gives the
-same image at every SNR).
+depend on the number of workers. With LDPC decoding on a small GPU, one worker is
+usually best (several workers compete for the same GPU and memory). The source encoding
+of an image is computed once per scheme and reused across SNRs and realisations;
+metrics are cached per distinct reconstruction (all failures share the fallback image;
+a decoded codestream gives the same image at every SNR).
 """
 
 from __future__ import annotations
@@ -34,9 +38,10 @@ import math
 import os
 import subprocess
 import sys
+import time
 from collections import defaultdict
 from collections.abc import Sequence
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
@@ -241,22 +246,75 @@ def provenance() -> dict[str, Any]:
             "command": " ".join(sys.argv)}
 
 
+def _load_partial(path: Path, key: str) -> dict[int, list[dict[str, Any]]]:
+    """Records of the images already done by an interrupted run with the same ``key``."""
+    lines = path.read_text(encoding="utf-8").splitlines()
+    if not lines or json.loads(lines[0]).get("key") != key:
+        raise ValueError(f"{path} belongs to another configuration; delete it to start over")
+    done = {}
+    for line in lines[1:]:
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:  # last line cut by the interruption
+            break
+        done[entry["index"]] = entry["records"]
+    return done
+
+
 def evaluate(system: dict[str, Any], scenario: dict[str, Any],
              images: Sequence[tuple[str, Path | np.ndarray]], *, seed: int = 0,
-             realizations: int = 1, workers: int = 1, snr_step: float | None = None
+             realizations: int = 1, workers: int = 1, snr_step: float | None = None,
+             partial: Path | None = None, progress: bool = False
              ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Evaluate ``system`` on ``images``.
+
+    With ``partial``, every finished image is appended to that JSON-lines file at once,
+    and a run interrupted with the same configuration resumes from it (images already in
+    the file are not recomputed). ``progress`` prints one line per finished image.
+    """
     grid = snr_values(scenario["snr_db"], snr_step)
     jobs = [{"index": i, "sample_id": sid, "image": img, "system": system,
              "scenario": scenario, "snr_db": grid, "realizations": realizations,
              "seed": seed} for i, (sid, img) in enumerate(images)]
-    if workers > 1:
+    key = hashlib.sha256(json.dumps(
+        {"system": system, "scenario": scenario, "snr_db": grid, "realizations": realizations,
+         "seed": seed, "images": [sid for sid, _ in images]}, sort_keys=True, default=str
+    ).encode()).hexdigest()
+    done: dict[int, list[dict[str, Any]]] = {}
+    if partial is not None:
+        partial.parent.mkdir(parents=True, exist_ok=True)
+        if partial.exists():
+            done = _load_partial(partial, key)
+        else:
+            partial.write_text(json.dumps({"key": key}) + "\n", encoding="utf-8")
+    todo = [j for j in jobs if j["index"] not in done]
+    t0 = time.time()
+
+    def finished(job: dict[str, Any], recs: list[dict[str, Any]]) -> None:
+        done[job["index"]] = recs
+        if partial is not None:
+            with open(partial, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"index": job["index"], "records": recs}) + "\n")
+        if progress:
+            n_new = len(done) - (len(jobs) - len(todo))
+            eta = (time.time() - t0) / n_new * (len(jobs) - len(done))
+            print(f"[{len(done)}/{len(jobs)}] {job['sample_id']}  "
+                  f"elapsed {time.time() - t0:.0f} s, remaining ~{eta:.0f} s", flush=True)
+
+    if progress and len(todo) < len(jobs):
+        print(f"resuming: {len(jobs) - len(todo)} of {len(jobs)} images already done",
+              flush=True)
+    if workers > 1 and todo:
         for var in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):
             os.environ.setdefault(var, "1")
         with ProcessPoolExecutor(workers, initializer=_init_worker) as ex:
-            per_image = list(ex.map(evaluate_image, jobs))
+            futures = {ex.submit(evaluate_image, j): j for j in todo}
+            for fut in as_completed(futures):
+                finished(futures[fut], fut.result())
     else:
-        per_image = [evaluate_image(j) for j in jobs]
-    records = [r for rs in per_image for r in rs]
+        for j in todo:
+            finished(j, evaluate_image(j))
+    records = [r for i in sorted(done) for r in done[i]]
     summary = {"schema_version": SCHEMA_VERSION, "system": system, "scenario": scenario,
                "n_images": len(images), "snr_db": grid, "realizations": realizations,
                "seed": seed, "results": summarize(records), "provenance": provenance()}

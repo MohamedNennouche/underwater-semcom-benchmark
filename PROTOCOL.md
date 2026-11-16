@@ -433,8 +433,13 @@ Code: [`uwbench/eval/`](uwbench/eval/).
   - The JPEG 2000 rate search starts from the OpenJPEG rate estimate: about 10 encodings.
   - Metrics are cached per distinct reconstruction.
   - LDPC decoding runs on the GPU when available (`device: auto`).
-  - Reference figure: on a laptop (RTX 500, 3 workers), 89 UIEB test images, 31 SNR
-    points and 3 modulations take about 15 minutes.
+  - Each finished image is saved at once (`<run>.partial.jsonl`), and an interrupted
+    run resumes from it.
+  - Measured cost on a laptop (RTX 500, 4 GB, 1 worker), with 31 SNR points:
+    - about 70 s per UIEB image for the separation baseline (3 modulations);
+    - about 90 s per image for the ideal bound, whose JPEG 2000 rate search is repeated
+      at every SNR.
+    - These figures come from 5 images of 0.45 Mpx; the UIEB test average is 0.63 Mpx.
 
 ### 6.2 Result schema (version 1.0)
 

@@ -6,7 +6,6 @@ Sub-commands are registered here as their phases are implemented and tested.
 from __future__ import annotations
 
 import argparse
-import os
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -46,7 +45,9 @@ def build_parser() -> argparse.ArgumentParser:
     ev.add_argument("--split", default="test")
     ev.add_argument("--realizations", type=int, default=1, help="channel draws per image")
     ev.add_argument("--seed", type=int, default=0)
-    ev.add_argument("--workers", type=int, default=min(8, os.cpu_count() or 1))
+    ev.add_argument("--workers", type=int, default=1,
+                    help="parallel image processes (each ~0.6-1 GB RAM); with GPU decoding "
+                         "on a small GPU, 1 is usually fastest")
     ev.add_argument("--snr-step", type=float, default=None,
                     help="override the scenario's SNR step (same range)")
     ev.add_argument("--limit", type=int, default=None, help="first N images only")
@@ -136,12 +137,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             system["checkpoint"] = str(args.checkpoint or system["checkpoint"].format(
                 scenario=scenario["name"]))
         images = split_images(args.dataset, args.split, root)[:args.limit]
+        stem = f"{system['name']}_{scenario['name']}_{args.dataset}_{args.split}"
+        partial = args.out / f"{stem}.partial.jsonl"
         summary, records = evaluate(system, scenario, images, seed=args.seed,
                                     realizations=args.realizations, workers=args.workers,
-                                    snr_step=args.snr_step)
+                                    snr_step=args.snr_step, partial=partial, progress=True)
         summary.update(dataset=args.dataset, split=args.split, limit=args.limit)
-        stem = f"{system['name']}_{scenario['name']}_{args.dataset}_{args.split}"
         print(f"wrote {write(summary, records, args.out, stem)}")
+        partial.unlink()  # complete results are in the JSON and CSV
         return 0
     if args.command == "train":
         import yaml
