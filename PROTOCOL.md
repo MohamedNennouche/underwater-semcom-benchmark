@@ -521,7 +521,8 @@ Code: [`uwbench/models/`](uwbench/models/). Configurations:
   - padding 2 and output padding 1;
   - one PReLU parameter per layer;
   - Kaiming/Xavier initialisation;
-  - Adam with lr 10⁻³, weight decay 5·10⁻⁴, and the learning rate halved on a plateau.
+  - Adam with lr 10⁻³, weight decay 5·10⁻⁴, and the learning rate halved on a plateau
+    (patience 5 here, against 15 there, so that it acts before the early stop of §7.3).
 - **ADJSCC:** GDN is re-implemented from Ballé et al., ICLR 2016, with the same formula and
   initialisation as `tensorflow_compression`.
 - **Remaining differences:**
@@ -539,18 +540,23 @@ Code: [`uwbench/models/`](uwbench/models/). Configurations:
   test split. Model selection uses the `val` splits.
 - **Inputs.** Random 128 × 128 crops with horizontal flips.
 - **Optimisation.** MSE loss and Adam, with the settings of each model's configuration
-  (DeepJSCC: lr 10⁻³, weight decay, plateau schedule; ADJSCC and WITT: lr 10⁻⁴).
+  (DeepJSCC: lr 10⁻³ and weight decay; ADJSCC and WITT: lr 10⁻⁴). For all three, the
+  learning rate is halved when the validation PSNR has not improved for 5 epochs
+  (minimum 10⁻⁶).
 - **SNR.** The training SNR is drawn uniformly over the scenario's range. The channel is
   the evaluation channel.
 - **Model selection.** Validation PSNR averaged over a fixed subset of 512 validation
   images (spread over the datasets) and the scenario's SNR grid, with a fixed seed; the
   best epoch is kept.
+- **Convergence.** Training stops when the validation PSNR has not improved for 20
+  epochs, so the learning rate has been halved several times by then; 200 epochs are only
+  a safety cap. `log.csv` shows where each run stopped.
 - **Resume.** Re-running the same command continues from `last.pt` (weights, optimiser,
-  scheduler, random generators). Only the number of epochs may change, so a finished
-  training can be extended.
+  scheduler, random generators). Only the number of epochs may change, so a run that
+  reached the cap before converging can be extended; a converged run is not continued.
 - **Outputs.** `checkpoints/<model>_<scenario>/{best,last}.pt` and `log.csv`.
-- **Budget.** `TODO(verify)`: bandwidth ratios (1/6, 1/12), epochs and batch sizes
-  depend on the GPU budget. The batch sizes fit a 24 GB GPU (RTX 3090).
+- **Budget.** `TODO(verify)`: bandwidth ratios (1/6, 1/12) and batch sizes depend on
+  the GPU budget. The batch sizes fit a 24 GB GPU (RTX 3090).
 - **Planned runs.** `uwoc_clear`, `uwoc_turbulence_moderate` and `uac_modeled_short`,
   plus a mismatch test (trained on `uwoc_clear`, tested on `uwoc_turbid` with
   `--checkpoint`).

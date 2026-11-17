@@ -110,6 +110,15 @@ def test_training_then_evaluation_through_the_engine(tmp_path):
     with pytest.raises(ValueError, match="another configuration"):
         train(other, scenario, smooth_images(8, 48, 48), smooth_images(2, 48, 48, 1), tmp_path)
 
+    # early stop: with lr 0 the validation PSNR never improves after epoch 1; a resumed
+    # converged run does not train again
+    frozen = dict(cfg, train=dict(cfg["train"], lr=0.0, epochs=10, early_stop_patience=2))
+    for _ in range(2):
+        train(frozen, scenario, smooth_images(8, 48, 48), smooth_images(2, 48, 48, 1),
+              tmp_path / "frozen")
+        with open(tmp_path / "frozen" / "deepjscc_test_awgn" / "log.csv", encoding="utf-8") as f:
+            assert [r["epoch"] for r in csv.DictReader(f)] == ["1", "2", "3"]
+
     system = dict(cfg, checkpoint=str(best), device="cpu")
     images = [(f"img{i}", im) for i, im in enumerate(smooth_images(2, 176, 168, 2))]
     summary, records = evaluate(system, scenario, images, seed=0)

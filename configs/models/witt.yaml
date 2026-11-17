@@ -2,7 +2,7 @@
 # https://github.com/KeYang8/WITT (high-resolution configuration). Adam, lr 1e-4
 # and batch size 16 (official, DIV2K).
 # Learned system for uwbench train / uwbench evaluate (PROTOCOL.md section 7).
-# TODO(verify): bandwidth ratio (1/6 or 1/12) and epochs (GPU budget). Batch sizes
+# TODO(verify): bandwidth ratio (1/6 or 1/12). Batch sizes
 # fit a 24 GB GPU (RTX 3090); lower them on smaller GPUs.
 name: witt
 type: learned
@@ -15,7 +15,9 @@ train:
   crop: 128
   batch_size: 16
   lr: 1.0e-4
-  epochs: 100
+  scheduler: {type: plateau, factor: 0.5, patience: 5, min_lr: 1.0e-6}  # several halvings before the early stop
+  epochs: 200           # safety cap; training normally stops on convergence
+  early_stop_patience: 20  # stop after 20 epochs without a better validation PSNR
   workers: 6            # data-loading processes
   val_images: 512        # fixed validation subset
   seed: 0

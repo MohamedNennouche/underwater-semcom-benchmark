@@ -15,6 +15,8 @@ Protocol (work plan, phase 8; parameters in ``configs/models/*.yaml``):
   (:func:`uwbench.models.base.transmit`);
 * validation PSNR (mean over a fixed subset of ``val_images`` validation crops, 512 by
   default, and the scenario's SNR grid, fixed seed); the best epoch is kept;
+* convergence: with ``early_stop_patience``, training stops once the validation PSNR has
+  not improved for that many epochs (``epochs`` is then only a safety cap);
 * resumable: re-running the same command continues from ``last.pt`` (weights,
   optimiser, scheduler and random generators); only ``epochs`` may change, so a
   finished training can also be extended.
@@ -118,7 +120,8 @@ def train(model_cfg: dict[str, Any], scenario: dict[str, Any],
     run = out_dir / f"{model_cfg['name']}_{scenario['name']}"
     run.mkdir(parents=True, exist_ok=True)
     meta = {"model_cfg": model_cfg, "scenario": scenario, "provenance": provenance()}
-    start, best = 1, -np.inf
+    start, best, best_epoch = 1, -np.inf, 0
+    patience = tc.get("early_stop_patience")  # epochs without a better validation PSNR
     if (run / "last.pt").exists():  # resume an interrupted or extended training
         state = torch.load(run / "last.pt", map_location="cpu", weights_only=True)
         if _resumable(state["model_cfg"]) != _resumable(model_cfg) \
@@ -131,8 +134,11 @@ def train(model_cfg: dict[str, Any], scenario: dict[str, Any],
             sched.load_state_dict(state["scheduler"])
         rng.bit_generator.state, crops.rng.bit_generator.state = state["rng"], state["crop_rng"]
         gen.set_state(state["loader_rng"])
-        start, best = state["epoch"] + 1, state["best_val_psnr_db"]
+        start, best, best_epoch = state["epoch"] + 1, state["best_val_psnr_db"], state["best_epoch"]
         print(f"resuming {run.name} after epoch {state['epoch']}", flush=True)
+        if patience and state["epoch"] - best_epoch >= patience:
+            print(f"already converged (best at epoch {best_epoch})", flush=True)
+            return run / "best.pt"
     with open(run / "log.csv", "a" if start > 1 else "w", newline="", encoding="utf-8") as f:
         log = csv.writer(f, lineterminator="\n")
         if start == 1:
@@ -161,17 +167,24 @@ def train(model_cfg: dict[str, Any], scenario: dict[str, Any],
             val_psnr = float(np.mean(scores))
             if sched is not None:
                 sched.step(val_psnr)
-            best = max(best, val_psnr)
+            improved = val_psnr > best
+            if improved:
+                best, best_epoch = val_psnr, epoch
             state = {"model": model.state_dict(), "epoch": epoch, "val_psnr_db": val_psnr,
-                     "best_val_psnr_db": best, "optimizer": opt.state_dict(),
+                     "best_val_psnr_db": best, "best_epoch": best_epoch,
+                     "optimizer": opt.state_dict(),
                      "scheduler": sched.state_dict() if sched is not None else None,
                      "rng": rng.bit_generator.state, "crop_rng": crops.rng.bit_generator.state,
                      "loader_rng": gen.get_state(), **meta}
-            if val_psnr == best:  # before last.pt: an interruption never loses a new best
+            if improved:  # before last.pt: an interruption never loses a new best
                 torch.save(state, run / "best.pt")
             torch.save(state, run / "last.pt")
             log.writerow([epoch, float(np.mean(losses)), val_psnr, round(time.time() - t0, 1)])
             f.flush()
             print(f"epoch {epoch}: train MSE {np.mean(losses):.5f}, val PSNR {val_psnr:.2f} dB",
                   flush=True)
+            if patience and epoch - best_epoch >= patience:
+                print(f"converged: no better validation PSNR for {patience} epochs "
+                      f"(best {best:.2f} dB at epoch {best_epoch})", flush=True)
+                break
     return run / "best.pt"
