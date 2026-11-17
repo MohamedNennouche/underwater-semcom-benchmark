@@ -66,7 +66,9 @@ def test_results_do_not_depend_on_worker_count(separation_run):
     for a, b in zip(records2, separation_run[1], strict=True):
         assert {k: v for k, v in a.items() if k not in metrics} == \
             {k: v for k, v in b.items() if k not in metrics}  # every decision is identical
-        assert [a[m] for m in metrics] == pytest.approx([b[m] for m in metrics], rel=1e-6)
+        # abs: LPIPS can be ~1e-4, where GPU summation order alone moves the 7th digit
+        assert [a[m] for m in metrics] == pytest.approx([b[m] for m in metrics], rel=1e-6,
+                                                        abs=1e-6)
     assert len(summary2["results"]) == len(separation_run[0]["results"])
 
 
