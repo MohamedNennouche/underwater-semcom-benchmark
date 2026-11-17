@@ -426,7 +426,8 @@ Code: [`uwbench/eval/`](uwbench/eval/).
 - **Seeds.** Image *i* uses `numpy.random.default_rng([seed, i])`, so results do not
   depend on the number of worker processes. Only floating-point sums of the metrics may
   differ in the last digits, which the CI test checks.
-- **Grid.** `--snr-step` refines the scenario grid over the same range; it is recorded.
+- **Grid.** `--snr-step` refines the scenario grid over the same range. It is recorded
+  in the JSON and, like `--limit`, appended to the output file names.
 - **Speed.**
   - Images run in parallel processes, with one thread each.
   - The source encoding is computed once per (image, scheme).

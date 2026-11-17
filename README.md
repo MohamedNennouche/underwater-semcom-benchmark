@@ -77,7 +77,9 @@ uwbench report results/uieb/*.json --out results/uieb/report
 ```
 
 **Grid.** These commands use each scenario's grid (5 dB steps). Add `--snr-step 1` for
-a 1 dB grid over the same range; the step is recorded in the result JSON.
+a 1 dB grid over the same range. The step is recorded in the result JSON and, like
+`--limit`, added to the file names (`…_step1.json`), so runs with different settings
+never overwrite each other.
 
 **Long runs.** Each finished image is saved at once in `results/uieb/<run>.partial.jsonl`,
 and a progress line is printed. If a run is interrupted, re-running the same command

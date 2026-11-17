@@ -251,13 +251,16 @@ def _load_partial(path: Path, key: str) -> dict[int, list[dict[str, Any]]]:
     lines = path.read_text(encoding="utf-8").splitlines()
     if not lines or json.loads(lines[0]).get("key") != key:
         raise ValueError(f"{path} belongs to another configuration; delete it to start over")
-    done = {}
+    done, valid = {}, lines[:1]
     for line in lines[1:]:
         try:
             entry = json.loads(line)
         except json.JSONDecodeError:  # last line cut by the interruption
             break
         done[entry["index"]] = entry["records"]
+        valid.append(line)
+    # drop the cut line, otherwise the next append would be glued to it
+    path.write_text("\n".join(valid) + "\n", encoding="utf-8")
     return done
 
 
@@ -309,8 +312,12 @@ def evaluate(system: dict[str, Any], scenario: dict[str, Any],
             os.environ.setdefault(var, "1")
         with ProcessPoolExecutor(workers, initializer=_init_worker) as ex:
             futures = {ex.submit(evaluate_image, j): j for j in todo}
-            for fut in as_completed(futures):
-                finished(futures[fut], fut.result())
+            try:
+                for fut in as_completed(futures):
+                    finished(futures[fut], fut.result())
+            except BaseException:  # error or Ctrl+C: do not run the queued images unsaved
+                ex.shutdown(wait=False, cancel_futures=True)
+                raise
     else:
         for j in todo:
             finished(j, evaluate_image(j))

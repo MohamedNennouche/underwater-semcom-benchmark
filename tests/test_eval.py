@@ -86,8 +86,18 @@ def test_interrupted_run_resumes_from_partial_file(tmp_path, separation_run, mon
     resumed, records = evaluate(SEPARATION, SCENARIO, images, seed=1, partial=partial)
     assert calls == [2]  # only the image whose line was cut is recomputed
     assert resumed["results"] == full["results"]
+    resaved = partial.read_text(encoding="utf-8").splitlines()
+    assert len(resaved) == 1 + 3 and all(json.loads(line) for line in resaved)  # cut line gone
     with pytest.raises(ValueError, match="another configuration"):
         evaluate(SEPARATION, SCENARIO, images, seed=2, partial=partial)
+
+
+def test_worker_error_is_raised_with_several_workers(tmp_path):
+    small = synthetic_images(1, 100, 100)  # too small for MS-SSIM: the worker raises
+    system = dict(SEPARATION, mcs=[["bpsk", 0.5]])
+    with pytest.raises(ValueError, match="MS-SSIM"):
+        evaluate(system, SCENARIO, small + synthetic_images(3), seed=1, workers=2,
+                 partial=tmp_path / "run.partial.jsonl")
 
 
 def test_ideal_bound_and_report(tmp_path, separation_run):

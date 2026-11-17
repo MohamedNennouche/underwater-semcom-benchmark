@@ -138,6 +138,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 scenario=scenario["name"]))
         images = split_images(args.dataset, args.split, root)[:args.limit]
         stem = f"{system['name']}_{scenario['name']}_{args.dataset}_{args.split}"
+        stem += f"_step{args.snr_step:g}" if args.snr_step else ""  # runs never overwrite
+        stem += f"_limit{args.limit}" if args.limit else ""  # each other
         partial = args.out / f"{stem}.partial.jsonl"
         summary, records = evaluate(system, scenario, images, seed=args.seed,
                                     realizations=args.realizations, workers=args.workers,
