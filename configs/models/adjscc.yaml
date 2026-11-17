@@ -7,7 +7,7 @@ type: learned
 model: uwbench.models.adjscc:ADJSCC
 params: {bandwidth_ratio: 0.1666667}
 checkpoint: checkpoints/adjscc_{scenario}/best.pt
-modulation_index: 1.0  # optical channel: DC bias 1, s = max(0, 1 + m f / rms(f))
+modulation_index: 1.0  # optical channel: s = max(0, 1 + m (f - mean f) / std(f))
 train:
   datasets: [lsui, euvp, uieb]
   crop: 128

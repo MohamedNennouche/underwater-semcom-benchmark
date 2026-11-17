@@ -84,8 +84,15 @@ def sample_pointing(cfg: dict[str, Any] | None, n: int, rng: np.random.Generator
 
 
 def bias_and_clip(x: torch.Tensor, modulation_index: float) -> torch.Tensor:
-    """Map real analog symbols to intensities: ``max(0, 1 + m x / rms(x))`` (DC bias 1)."""
-    return torch.clamp(1 + modulation_index * normalize_power(x), min=0)
+    """Map real analog symbols to intensities: ``max(0, 1 + m (x - mean x) / std(x))`` per
+    row, a zero-mean AC signal of power ``m^2`` on a DC bias of 1 (DC-biased IM/DD).
+
+    The mean is removed so that the modulation index stays ``m``: with ``x / rms(x)``, a
+    learned encoder drove its latent to a near-constant negative value, clipped most
+    symbols and lost its training in one step when that fragile operating point flipped.
+    """
+    ac = x - x.mean(dim=-1, keepdim=True)
+    return torch.clamp(1 + modulation_index * normalize_power(ac), min=0)
 
 
 def remove_bias(r: torch.Tensor, modulation_index: float) -> torch.Tensor:

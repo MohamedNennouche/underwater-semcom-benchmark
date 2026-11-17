@@ -169,6 +169,11 @@ def test_pointing_mean_matches_closed_form():
 def test_intensities_are_non_negative_and_negative_input_rejected():
     s = bias_and_clip(torch.randn(4, 10_000), modulation_index=1.0)
     assert (s >= 0).all()
+    # the operating point cannot be moved by the latent's DC: a near-constant negative
+    # latent (the collapse seen in training) still gives a unit-variance signal on the
+    # bias, with Gaussian-level clipping (16 %, mean Phi(1) + phi(1) = 1.083)
+    s = bias_and_clip(-5 + 1e-3 * torch.randn(4, 10_000), modulation_index=1.0)
+    assert (s == 0).double().mean() < 0.2 and s.mean().item() == pytest.approx(1.08, abs=0.03)
     with pytest.raises(ValueError):
         UWOC(0.15, 10.0)(torch.tensor([[0.5, -0.1]]), 10.0, np.random.default_rng(0))
 

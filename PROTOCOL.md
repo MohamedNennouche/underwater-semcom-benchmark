@@ -492,8 +492,15 @@ Code: [`uwbench/models/`](uwbench/models/). Configurations:
   - the image is padded to a multiple of `downsample` (reflection), then cropped back;
   - **complex symbols:** the flattened latent (f₁…f₂ₖ) gives the symbols fᵢ + j f_{k+i},
     which the channel normalises to unit mean power;
-  - **real symbols (IM/DD):** s = max(0, 1 + m f / rms(f)), with m = 1 by default; the
-    bias is removed after the channel.
+  - **real symbols (IM/DD):** s = max(0, 1 + m (f − mean f) / std(f)) per image, a
+    zero-mean AC signal of power m² on a DC bias of 1, with m = 1 by default; the bias
+    is removed after the channel. The mean is removed so that the latent cannot move
+    the operating point: with f / rms(f), DeepJSCC on `uwoc_clear` drove its latent to
+    a near-constant negative value (65 % of the symbols clipped) and lost its training
+    in one epoch when that operating point flipped. That signal was also unfair to the
+    OOK and 4-PAM baselines: at the same mean optical power it had 6.8 times the AC
+    power of OOK, with peaks 39 times the mean that a peak-limited LED or laser cannot
+    emit. With the mean removed, the same latent gives an AC power of 0.92 (OOK: 1).
 - **Bandwidth ratio.** k/n = c·h·w / (2·3·H·W) for complex symbols, without the factor 2
   for real ones. With ρ = 1/6: c = 16 for DeepJSCC and ADJSCC (downsampling 4), and
   c = 256 for WITT (downsampling 16), with complex symbols.

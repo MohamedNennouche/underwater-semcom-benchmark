@@ -17,7 +17,7 @@ mapping of the latent to channel symbols, power normalisation and the channel it
 * complex symbols: the flattened latent ``(f_1 .. f_2k)`` gives ``k`` complex symbols
   ``f_i + j f_{k+i}`` (as in ADJSCC's TensorFlow code); the channel normalises them to
   unit mean power (``E|z|^2 = 1``, eq. (1) of Bourtsoulatze et al., TCCN 2019, P = 1);
-* real symbols (IM/DD): DC bias and clipping, ``s = max(0, 1 + m f / rms(f))``
+* real symbols (IM/DD): DC bias and clipping, ``s = max(0, 1 + m (f - mean f) / std(f))``
   (:func:`uwbench.channels.uwoc.bias_and_clip`, modulation index ``m``), inverted after
   the channel.
 
