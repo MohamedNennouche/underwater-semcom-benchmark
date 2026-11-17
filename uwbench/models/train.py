@@ -8,7 +8,9 @@ Protocol (work plan, phase 8; parameters in ``configs/models/*.yaml``):
 * random ``crop x crop`` crops (reflection padding of smaller images) with horizontal
   flips; validation on fixed centre crops;
 * MSE loss, Adam (optional ``weight_decay``; optional ``scheduler: {type: plateau,
-  factor, patience, min_lr}`` on the validation PSNR); the SNR of every training image is
+  factor, patience, min_lr}`` on the validation PSNR; optional ``grad_clip``, the maximum
+  gradient norm, against divergence; ``log.csv`` records the largest norm before
+  clipping of each epoch); the SNR of every training image is
   drawn uniformly in the scenario's
   range (``snr_db.start`` to ``snr_db.stop``, or ``train.snr_db``), and the image goes
   through the scenario's channel exactly as in evaluation
@@ -142,9 +144,9 @@ def train(model_cfg: dict[str, Any], scenario: dict[str, Any],
     with open(run / "log.csv", "a" if start > 1 else "w", newline="", encoding="utf-8") as f:
         log = csv.writer(f, lineterminator="\n")
         if start == 1:
-            log.writerow(["epoch", "train_mse", "val_psnr_db", "seconds"])
+            log.writerow(["epoch", "train_mse", "val_psnr_db", "seconds", "max_grad_norm"])
         for epoch in range(start, (epochs or tc["epochs"]) + 1):
-            t0, losses = time.time(), []
+            t0, losses, max_norm = time.time(), [], 0.0
             model.train()
             for x in loader:
                 x = x.to(device)
@@ -153,8 +155,11 @@ def train(model_cfg: dict[str, Any], scenario: dict[str, Any],
                 loss = F.mse_loss(transmit(model, x, channel, snr, rng, m_index), x)
                 opt.zero_grad()
                 loss.backward()
+                norm = torch.nn.utils.clip_grad_norm_(model.parameters(),  # norm before clip
+                                                      tc.get("grad_clip", float("inf")))
                 opt.step()
                 losses.append(loss.item())
+                max_norm = max(max_norm, norm.item())
             model.eval()
             vrng, scores = np.random.default_rng(seed + 1), []
             with torch.no_grad():
@@ -179,7 +184,8 @@ def train(model_cfg: dict[str, Any], scenario: dict[str, Any],
             if improved:  # before last.pt: an interruption never loses a new best
                 torch.save(state, run / "best.pt")
             torch.save(state, run / "last.pt")
-            log.writerow([epoch, float(np.mean(losses)), val_psnr, round(time.time() - t0, 1)])
+            log.writerow([epoch, float(np.mean(losses)), val_psnr, round(time.time() - t0, 1),
+                          max_norm])
             f.flush()
             print(f"epoch {epoch}: train MSE {np.mean(losses):.5f}, val PSNR {val_psnr:.2f} dB",
                   flush=True)

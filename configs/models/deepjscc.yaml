@@ -17,6 +17,7 @@ train:
   lr: 1.0e-3
   weight_decay: 5.0e-4
   scheduler: {type: plateau, factor: 0.5, patience: 5, min_lr: 1.0e-6}  # several halvings before the early stop
+  grad_clip: 1.0        # maximum gradient norm (a DeepJSCC run diverged without it)
   epochs: 200           # safety cap; training normally stops on convergence
   early_stop_patience: 20  # stop after 20 epochs without a better validation PSNR
   workers: 6            # data-loading processes

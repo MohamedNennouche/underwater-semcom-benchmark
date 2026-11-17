@@ -104,13 +104,14 @@ def test_training_then_evaluation_through_the_engine(tmp_path):
     cfg = {"name": "deepjscc_test", "type": "learned",
            "model": "uwbench.models.deepjscc:DeepJSCC", "params": {"bandwidth_ratio": 1 / 6},
            "train": {"crop": 32, "batch_size": 4, "lr": 1e-3, "epochs": 2, "seed": 0,
-                     "workers": 2}}
+                     "workers": 2, "grad_clip": 1.0}}
     scenario = {"name": "awgn", "channel": "awgn", "snr_db": {"start": 0, "stop": 20, "step": 10}}
     best = train(cfg, scenario, smooth_images(8, 48, 48), smooth_images(2, 48, 48, 1), tmp_path)
     assert best.exists() and (best.parent / "last.pt").exists()
     with open(best.parent / "log.csv", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
     assert len(rows) == 2 and all(np.isfinite(float(r["val_psnr_db"])) for r in rows)
+    assert all(0 < float(r["max_grad_norm"]) < np.inf for r in rows)  # norm before clipping
 
     # resume: extending to 3 epochs continues after epoch 2; two loader workers exercise
     # the per-worker crop seeding; another configuration is refused

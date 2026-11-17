@@ -542,7 +542,9 @@ Code: [`uwbench/models/`](uwbench/models/). Configurations:
 - **Optimisation.** MSE loss and Adam, with the settings of each model's configuration
   (DeepJSCC: lr 10⁻³ and weight decay; ADJSCC and WITT: lr 10⁻⁴). For all three, the
   learning rate is halved when the validation PSNR has not improved for 5 epochs
-  (minimum 10⁻⁶).
+  (minimum 10⁻⁶). Gradients are clipped to a norm of 1: a first DeepJSCC run on
+  `uwoc_clear` diverged at epoch 51 without it (training MSE tripled in two epochs).
+  `log.csv` records the largest gradient norm of each epoch, before clipping.
 - **SNR.** The training SNR is drawn uniformly over the scenario's range. The channel is
   the evaluation channel.
 - **Model selection.** Validation PSNR averaged over a fixed subset of 512 validation
