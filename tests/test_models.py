@@ -1,8 +1,10 @@
 import csv
+from pathlib import Path
 
 import numpy as np
 import pytest
 import torch
+import yaml
 from PIL import Image
 
 from uwbench.channels.awgn import AWGN
@@ -69,6 +71,16 @@ def test_gdn_and_igdn_formulas():
             layer.beta.copy_(beta.sqrt())
             layer.gamma.copy_(gamma.sqrt())
         torch.testing.assert_close(layer(x.reshape(1, 2, 1, 1)).flatten(), expected)
+
+
+@pytest.mark.parametrize("path", sorted(Path("configs/models").glob("*.yaml")),
+                         ids=lambda p: p.stem)
+@pytest.mark.parametrize("symbols", ["complex", "real"])
+def test_shipped_configs_build(path, symbols):
+    cfg = yaml.safe_load(path.read_text(encoding="utf-8"))
+    model = load_model(cfg, symbols)  # rounded ratios (0.1666667) give an integer C
+    z = model.encode(torch.rand(1, 3, 64, 64), snr(10))
+    assert bandwidth_ratio(model, z.shape[1]) == pytest.approx(1 / 6)
 
 
 def test_load_model_rejects_foreign_classes():

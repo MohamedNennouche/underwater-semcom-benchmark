@@ -51,7 +51,7 @@ class JSCCModel(torch.nn.Module):
 def latent_channels(bandwidth_ratio: float, downsample: int, symbols: str) -> int:
     """Number of latent channels ``C`` giving ``bandwidth_ratio`` (must be an integer)."""
     c = bandwidth_ratio * 3 * downsample**2 * (2 if symbols == "complex" else 1)
-    if abs(c - round(c)) > 1e-6:
+    if abs(c - round(c)) > 1e-3:  # configs write 1/6 as 0.1666667: C = 8.0000016
         raise ValueError(f"k/n = {bandwidth_ratio} needs {c} latent channels (not an integer)")
     return round(c)
 
