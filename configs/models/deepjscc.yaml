@@ -2,8 +2,8 @@
 # https://github.com/chunbaobao/Deep-JSCC-PyTorch (inspiration): Adam, lr 1e-3, weight decay
 # 5e-4, learning rate halved on plateau (patience 15, min 1e-5).
 # Learned system for uwbench train / uwbench evaluate (PROTOCOL.md section 7).
-# TODO(verify): bandwidth ratio (1/6 or 1/12), epochs and batch size depend on the GPU
-# budget; values below fit a 4 GB laptop GPU and are not those of the paper.
+# TODO(verify): bandwidth ratio (1/6 or 1/12) and epochs (GPU budget). Batch sizes
+# fit a 24 GB GPU (RTX 3090); lower them on smaller GPUs.
 name: deepjscc
 type: learned
 model: uwbench.models.deepjscc:DeepJSCC
@@ -18,5 +18,6 @@ train:
   weight_decay: 5.0e-4
   scheduler: {type: plateau, factor: 0.5, patience: 15, min_lr: 1.0e-5}
   epochs: 100
-  workers: 2
+  workers: 6            # data-loading processes
+  val_images: 512        # fixed validation subset
   seed: 0

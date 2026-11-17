@@ -542,11 +542,15 @@ Code: [`uwbench/models/`](uwbench/models/). Configurations:
   (DeepJSCC: lr 10⁻³, weight decay, plateau schedule; ADJSCC and WITT: lr 10⁻⁴).
 - **SNR.** The training SNR is drawn uniformly over the scenario's range. The channel is
   the evaluation channel.
-- **Model selection.** Validation PSNR averaged over the scenario's SNR grid, with a
-  fixed seed; the best epoch is kept.
+- **Model selection.** Validation PSNR averaged over a fixed subset of 512 validation
+  images (spread over the datasets) and the scenario's SNR grid, with a fixed seed; the
+  best epoch is kept.
+- **Resume.** Re-running the same command continues from `last.pt` (weights, optimiser,
+  scheduler, random generators). Only the number of epochs may change, so a finished
+  training can be extended.
 - **Outputs.** `checkpoints/<model>_<scenario>/{best,last}.pt` and `log.csv`.
 - **Budget.** `TODO(verify)`: bandwidth ratios (1/6, 1/12), epochs and batch sizes
-  depend on the GPU budget. The current values fit a 4 GB laptop GPU.
+  depend on the GPU budget. The batch sizes fit a 24 GB GPU (RTX 3090).
 - **Planned runs.** `uwoc_clear`, `uwoc_turbulence_moderate` and `uac_modeled_short`,
   plus a mismatch test (trained on `uwoc_clear`, tested on `uwoc_turbid` with
   `--checkpoint`).

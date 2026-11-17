@@ -1,9 +1,9 @@
 # Yang et al., ICASSP 2023 [137]; architecture of the official implementation
 # https://github.com/KeYang8/WITT (high-resolution configuration). Adam, lr 1e-4
-# (official); the official batch size on DIV2K is 16, reduced here for a 4 GB GPU.
+# and batch size 16 (official, DIV2K).
 # Learned system for uwbench train / uwbench evaluate (PROTOCOL.md section 7).
-# TODO(verify): bandwidth ratio (1/6 or 1/12), epochs and batch size depend on the GPU
-# budget; values below fit a 4 GB laptop GPU and are not those of the paper.
+# TODO(verify): bandwidth ratio (1/6 or 1/12) and epochs (GPU budget). Batch sizes
+# fit a 24 GB GPU (RTX 3090); lower them on smaller GPUs.
 name: witt
 type: learned
 model: uwbench.models.witt:WITT
@@ -13,8 +13,9 @@ modulation_index: 1.0  # optical channel: DC bias 1, s = max(0, 1 + m f / rms(f)
 train:
   datasets: [lsui, euvp, uieb]
   crop: 128
-  batch_size: 8
+  batch_size: 16
   lr: 1.0e-4
   epochs: 100
-  workers: 2
+  workers: 6            # data-loading processes
+  val_images: 512        # fixed validation subset
   seed: 0
