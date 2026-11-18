@@ -1,7 +1,7 @@
 # UWBench
 
-[![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXX)
+[![CI](https://github.com/MohamedNennouche/underwater-semcom-benchmark/actions/workflows/ci.yml/badge.svg)](https://github.com/MohamedNennouche/underwater-semcom-benchmark/actions/workflows/ci.yml)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24355730.svg)](https://doi.org/10.5281/zenodo.24355730)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **UWBench** is a benchmark for underwater semantic communications. It is the reference
@@ -92,8 +92,8 @@ Python ≥ 3.11. Install PyTorch first:
 Then:
 
 ```bash
-git clone https://github.com/OWNER/REPO.git
-cd REPO
+git clone https://github.com/MohamedNennouche/underwater-semcom-benchmark.git
+cd underwater-semcom-benchmark
 pip install -e ".[dev,baseline]"
 pytest
 ```
@@ -282,9 +282,12 @@ If you use UWBench, please cite the survey and the software:
 > Intelligence in the Deep: A Comprehensive Survey of Semantic Communications for
 > Underwater Wireless Systems," submitted, 2026.
 
-> M. Nennouche, A. Khalighi, Z. A. H. Qasem, S. Berra, and G. Kaddoum, "UWBench: reference
-> evaluation protocol for underwater semantic communications," version 1.0.0, Zenodo,
-> 2026. doi: [10.5281/zenodo.XXXXXXX](https://doi.org/10.5281/zenodo.XXXXXXX).
+> M. Nennouche, "UWBench: reference evaluation protocol for underwater semantic
+> communications," Zenodo, 2026. doi:
+> [10.5281/zenodo.24355730](https://doi.org/10.5281/zenodo.24355730).
+
+This DOI covers all versions and resolves to the latest one. To cite version 1.0.0
+specifically, use [10.5281/zenodo.24355731](https://doi.org/10.5281/zenodo.24355731).
 
 ```bibtex
 @article{nennouche2026enabling,
@@ -299,17 +302,21 @@ If you use UWBench, please cite the survey and the software:
 @software{nennouche2026uwbench,
   title     = {{UWBench}: Reference Evaluation Protocol for Underwater Semantic
                Communications},
-  author    = {Nennouche, Mohamed and Khalighi, Ali and Qasem, Zeyad A. H. and
-               Berra, Salah and Kaddoum, Georges},
+  author    = {Nennouche, Mohamed},
   year      = {2026},
-  version   = {1.0.0},
   publisher = {Zenodo},
-  doi       = {10.5281/zenodo.XXXXXXX},
-  url       = {https://github.com/OWNER/REPO}
+  doi       = {10.5281/zenodo.24355730},
+  url       = {https://github.com/MohamedNennouche/underwater-semcom-benchmark}
 }
 ```
 
 Machine-readable metadata: [CITATION.cff](CITATION.cff).
+
+## Acknowledgements
+
+UWBench was developed by Mohamed Nennouche. The author thanks Ali Khalighi, Zeyad A. H.
+Qasem, Salah Berra and Georges Kaddoum, co-authors of the survey on which this benchmark
+builds.
 
 ## License
 

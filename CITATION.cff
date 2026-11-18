@@ -4,18 +4,11 @@ title: "UWBench: reference evaluation protocol for underwater semantic communica
 type: software
 version: "1.0.0"
 license: MIT
-# doi: 10.5281/zenodo.XXXXXXX   (add the Zenodo DOI after the first release)
+doi: 10.5281/zenodo.24355730
+repository-code: "https://github.com/MohamedNennouche/underwater-semcom-benchmark"
 authors:
   - family-names: Nennouche
     given-names: Mohamed
-  - family-names: Khalighi
-    given-names: Ali
-  - family-names: Qasem
-    given-names: Zeyad A. H.
-  - family-names: Berra
-    given-names: Salah
-  - family-names: Kaddoum
-    given-names: Georges
 keywords:
   - semantic communications
   - underwater acoustic communications
