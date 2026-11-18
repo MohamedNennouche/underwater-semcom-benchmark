@@ -1,6 +1,6 @@
 """``uwbench train``: train a learned model on one scenario (one command per pair).
 
-Protocol (work plan, phase 8; parameters in ``configs/models/*.yaml``):
+Protocol (parameters in ``configs/models/*.yaml``):
 
 * data: the ``train`` splits of the listed datasets (default LSUI, EUVP, UIEB), which by
   construction share no duplicate with any test split; model selection on their ``val``

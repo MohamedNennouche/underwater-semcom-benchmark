@@ -2,7 +2,7 @@
 # https://github.com/KeYang8/WITT (high-resolution configuration). Adam, lr 1e-4
 # and batch size 16 (official, DIV2K).
 # Learned system for uwbench train / uwbench evaluate (PROTOCOL.md section 7).
-# TODO(verify): bandwidth ratio (1/6 or 1/12). Batch sizes
+# Bandwidth ratio of the reference results: 1/6. Batch sizes
 # fit a 24 GB GPU (RTX 3090); lower them on smaller GPUs.
 name: witt
 type: learned

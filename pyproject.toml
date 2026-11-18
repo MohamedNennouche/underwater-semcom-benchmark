@@ -3,14 +3,13 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "underwater-semcom-benchmark"
-version = "0.1.0.dev0"
-description = "Reference evaluation protocol for underwater semantic communications (acoustic and optical)."
+name = "uwbench"
+version = "1.0.0"
+description = "UWBench: reference evaluation protocol for underwater semantic communications (acoustic and optical)."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
-# Dependencies are added phase by phase, only when the code that needs them exists.
 dependencies = [
     "numpy>=2.0",  # np.bitwise_count for Hamming distances
     "scipy>=1.10",

@@ -40,7 +40,7 @@ def main() -> None:
             x = torch.rand(1, 3, args.size, args.size, device=args.device)
             snr = torch.full((1,), 10.0, device=args.device)
 
-            def run(img: torch.Tensor) -> torch.Tensor:
+            def run(img: torch.Tensor, model=model, snr=snr) -> torch.Tensor:
                 return model.decode(model.encode(img, snr), snr)
 
             lat = measure_latency(run, x, repeats=50)

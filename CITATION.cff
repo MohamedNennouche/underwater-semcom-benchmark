@@ -1,12 +1,21 @@
-# TODO(verify): authors, ORCIDs, release date and DOI to be filled in by the maintainers.
 cff-version: 1.2.0
-message: "If you use this benchmark, please cite it as below, together with the survey."
-title: "underwater-semcom-benchmark: reference evaluation protocol for underwater semantic communications"
+message: "If you use UWBench, please cite the survey and the software as below."
+title: "UWBench: reference evaluation protocol for underwater semantic communications"
 type: software
 version: "1.0.0"
 license: MIT
+# doi: 10.5281/zenodo.XXXXXXX   (add the Zenodo DOI after the first release)
 authors:
-  - name: "TODO(verify): author list"
+  - family-names: Nennouche
+    given-names: Mohamed
+  - family-names: Khalighi
+    given-names: Ali
+  - family-names: Qasem
+    given-names: Zeyad A. H.
+  - family-names: Berra
+    given-names: Salah
+  - family-names: Kaddoum
+    given-names: Georges
 keywords:
   - semantic communications
   - underwater acoustic communications
@@ -16,7 +25,16 @@ keywords:
 preferred-citation:
   type: article
   title: "Enabling Intelligence in the Deep: A Comprehensive Survey of Semantic Communications for Underwater Wireless Systems"
-  journal: "Proceedings of the IEEE"
   status: submitted
+  year: 2026
   authors:
-    - name: "TODO(verify): author list"
+    - family-names: Nennouche
+      given-names: Mohamed
+    - family-names: Khalighi
+      given-names: Ali
+    - family-names: Qasem
+      given-names: Zeyad A. H.
+    - family-names: Berra
+      given-names: Salah
+    - family-names: Kaddoum
+      given-names: Georges

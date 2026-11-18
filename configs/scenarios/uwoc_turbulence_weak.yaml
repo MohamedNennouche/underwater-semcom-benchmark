@@ -1,7 +1,7 @@
 # Optical IM/DD link (uwbench/channels/uwoc.py). Attenuation c from Table III of the
 # survey (configs/uwoc_water.yaml). SNR = transmit electrical SNR; received SNR =
 # SNR * h^2 (Beer-Lambert loss alone: 26.1 dB).
-# TODO(verify): distance and scintillation index are benchmark choices to be confirmed by the maintainers.
+# Benchmark choices, not from the survey: distance and scintillation index.
 name: uwoc_turbulence_weak
 channel: uwoc
 params:

@@ -8,7 +8,7 @@ Channel symbols
     * Acoustic (UAC) and AWGN control channel: complex baseband symbols
       (``torch.complex64`` / ``numpy.complex128``).
     * Optical (UWOC, IM/DD): real, non-negative intensity symbols.
-    These are enforced by the channel interface (``uwbench.channels.base``, phase 4).
+    These are enforced by the channel interface (``uwbench.channels.base``).
 
 Randomness
     See :mod:`uwbench.utils.seeding`.

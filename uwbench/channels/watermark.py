@@ -74,15 +74,9 @@ def channel_files(root: Path, name: str) -> list[Path]:
     return sorted((root / "input" / "channels" / name / "mat").glob(f"{name}_*.mat"))
 
 
-def interpolated_response(h: torch.Tensor, position: int) -> torch.Tensor:
-    """Impulse response at absolute sample ``position`` (linear interpolation in time)."""
-    k = h.shape[1]
-    n, f = divmod(position, k)
-    return (1 - f / k) * h[n] + (f / k) * h[n + 1]
-
-
 def average_response(h: torch.Tensor, first: int, length: int) -> torch.Tensor:
-    """Mean of the interpolated responses over samples ``first .. first + length - 1``.
+    """Mean of the impulse responses, linearly interpolated in time between snapshots, over
+    samples ``first .. first + length - 1``.
 
     Its FFT is the diagonal of the OFDM channel matrix over that window (the exact
     perfect-CSI coefficient of a time-varying channel; the rest is inter-carrier

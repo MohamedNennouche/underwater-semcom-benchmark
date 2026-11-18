@@ -1,95 +1,62 @@
-# Evaluation protocol
+# UWBench evaluation protocol
 
-This file specifies the reference evaluation protocol. It is the source for the
-"Reference evaluation protocol" table of the survey (Section VII-C). Sections are added
-as the corresponding components are implemented and tested.
+This file specifies what UWBench fixes: data, channels, metrics, baselines, result format
+and learned models. Installation and commands are in the [README](README.md).
 
 ## 1. Datasets
 
-See [DATASETS.md](DATASETS.md) and [`uwbench/data/registry.yaml`](uwbench/data/registry.yaml)
-for sources, licenses, checksums and folder layouts. Version 1.0 covers optical images:
+Sources, licenses, checksums and folder layouts: [DATASETS.md](DATASETS.md) and
+[`uwbench/data/registry.yaml`](uwbench/data/registry.yaml). Version 1.0 covers optical
+images.
 
 | Key | Task | Sample | Official split used |
 | --- | --- | --- | --- |
 | `uieb` | enhancement / fidelity | raw + reference (890 pairs; challenging-60 excluded) | none |
 | `lsui` | enhancement / fidelity | input + reference (4279 pairs) | test (400) |
-| `euvp` | enhancement / fidelity | input + reference, three paired training sets (11,435 pairs) | none |
+| `euvp` | enhancement / fidelity | input + reference, three paired sets (11,435 pairs) | none |
 | `suim` | semantic segmentation | image + mask (1635) | test (110) |
-| `trashcan` | instance segmentation / detection | image, instance version (7212) | none (see 2.3) |
+| `trashcan` | instance segmentation / detection | image, instance version (7212) | none (split by video) |
 | `uicd` | captioning | image (3176), 5 captions each | none |
 
 ## 2. Deduplication and frozen splits
 
-Commands: `uwbench dedup`, then `uwbench split`. Parameters:
+The splits are versioned in [`splits/`](splits/): you do not need to rebuild them. They
+were built by `uwbench dedup` and `uwbench split` with
 [`configs/splits.yaml`](configs/splits.yaml).
 
-### 2.1 Duplicate detection
+```mermaid
+flowchart LR
+    A["45,231 images<br/>6 datasets"] --> B["Fingerprints<br/>pixel SHA-256 + 64-bit pHash"]
+    B --> C["Duplicate groups<br/>pHash distance ≤ 6"]
+    C --> D["Group-aware draws<br/>official test sets kept, else 80/10/10"]
+    D --> E["Leak removal<br/>train/val copies of any test image dropped"]
+    E --> F[("splits/*.csv<br/>+ SHA-256")]
+```
 
-- Each image gets two fingerprints:
-  - the SHA-256 of its decoded RGB pixels;
-  - its 64-bit DCT perceptual hash (pHash, `imagehash.phash`, hash size 8).
-- Images are decoded by content, not by extension.
-- Two images are duplicates when their pHash Hamming distance is **≤ 6**.
-  - pHash thresholds against the median, so every hash has 32 set bits and distances are
-    always even: 6 behaves like 7.
-  - The threshold was confirmed by the maintainers on 2026-11-15 after visual inspection
-    of the contact sheets (`results/dedup/`, not versioned because they show third-party
-    images).
-  - On those sheets, pairs at distance 6 between datasets of natural images are the
-    same image (recoloured, enhanced or cropped). Pairs at distance 8 are mostly the
-    same scene.
-- For paired datasets, both the degraded and the reference image are hashed. Masks and
-  resized copies are not.
-- Two samples are linked when any of their images are duplicates. Duplicate groups are
-  the connected components of these links, written to `splits/duplicates.csv`.
-- TrashCan is compared with the other datasets only. Within TrashCan (dark,
-  low-texture ROV footage), pHash at distance 6 linked different scenes into groups of
-  up to 1245 frames across 104 videos.
+**Duplicates.** Two images are duplicates when the Hamming distance between their
+perceptual hashes (`imagehash.phash`, 64 bits) is at most 6. Both images of a pair are
+hashed. Duplicate groups are the connected components of these links
+(`splits/duplicates.csv`). The six datasets contain 3971 groups, 3365 of which span
+several datasets (mainly EUVP–LSUI, SUIM–UICD and UIEB–UICD): recoloured, enhanced or
+cropped copies of the same picture. TrashCan is only compared with the other datasets,
+since its dark ROV frames collide with each other at this threshold.
 
-Results on the six datasets (45,231 images):
-- 3971 duplicate groups, of which 3365 span several datasets;
-- largest group: 44 samples;
-- samples in a group: UIEB 610, LSUI 2363, EUVP 2887, SUIM 1580, UICD 2173.
+**Split rules.**
+1. Official test splits are kept (LSUI, SUIM); their validation set is 10 % of the
+   official training pool. Other datasets are split 80/10/10.
+2. A duplicate group (or a TrashCan source video) is never split across partitions.
+   Draws use `numpy.random.default_rng(0)`.
+3. A training or validation sample is removed when its group contains a test sample of
+   **any** dataset (`splits/removed.csv`). A model trained on the union of the training
+   splits never sees a test image, even a modified copy.
+4. Cross-dataset protocols (`splits/cross/`) train on A and test on all of B, with every
+   group present in B removed from training.
 
-Most cross-dataset duplicates are EUVP–LSUI, SUIM–UICD and UIEB–UICD.
-
-### 2.2 Split rules
-
-1. **Official test splits are kept intact** (LSUI, SUIM).
-   - Datasets with an official test split take 10% of their official training pool as
-     validation.
-   - Datasets without an official split are split 80/10/10.
-2. **Group-aware draws.**
-   - A unit is a set of samples of one dataset that share a duplicate group or a source
-     video (TrashCan). A unit is never split across partitions.
-   - Units are drawn in a `numpy.random.default_rng(0)` permutation of the units sorted
-     by their first sample id.
-   - A drawn (non-official) test split never contains a unit duplicated in another
-     dataset.
-3. **No train/test leakage, within or across datasets.** A train or validation sample
-   is removed when its duplicate group contains a test sample of any dataset. The
-   removed samples are listed in `splits/removed.csv`.
-4. **Cross-dataset protocols** (`splits/cross/`).
-   - Train on dataset A and test on all of dataset B.
-   - The training and validation sets exclude every duplicate group present in B.
-
-The leak check (`uwbench split`, and `tests/test_dedup_splits.py` on the versioned files)
-verifies two things:
-- no sample appears in two partitions of its dataset;
-- no duplicate group is both in a train/val file and in a test file, for all datasets
-  together and for each cross-dataset protocol.
-
-### 2.3 TrashCan
-
-The official train/val split of TrashCan is not used: 113 of the 115 source videos of
-its validation set also appear in its training set (frame names
-`vid_<video>_frame<k>`). The benchmark splits TrashCan 80/10/10 by video instead. Each
-image keeps its official folder (`train/` or `val/`), which tells which official COCO
+TrashCan's official split is not used: 113 of the 115 videos of its validation set also
+appear in its training set. Each image keeps its official folder, which tells which COCO
 JSON holds its annotations.
 
-### 2.4 Resulting splits
-
-| Dataset | Train | Val | Test | Removed (copies of a test sample) |
+| Dataset | Train | Val | Test | Removed |
 | --- | ---: | ---: | ---: | ---: |
 | UIEB | 712 | 88 | 89 | 1 |
 | LSUI | 3425 | 378 | 400 (official) | 76 |
@@ -104,12 +71,11 @@ JSON holds its annotations.
 | `euvp_to_uieb` | 8924 | 1090 | 889 (all of UIEB) |
 
 Each split file has a `sample_id` column and one path column per role, relative to
-`datasets/<key>/extracted/`. Cross-dataset files also have a `dataset` column.
+`datasets/<key>/extracted/` (plus a `dataset` column in cross-dataset files). The tests
+check that the files match these checksums and contain no leak.
 
-### 2.5 Checksums of the versioned split files
-
-Generated by `uwbench split`. `tests/test_dedup_splits.py` checks that this table
-matches the files in `splits/`.
+<details>
+<summary>SHA-256 of the split files</summary>
 
 | File | SHA-256 |
 | --- | --- |
@@ -140,349 +106,210 @@ matches the files in `splits/`.
 | `uieb_train.csv` | `2b122792f42064dfbca70923972b4d2b2a71f7f3b09c1a638ed416011b49fadf` |
 | `uieb_val.csv` | `1197a13afafce683f9653927734d3c0ff6eee396cf33b64dfe3402ee8d876bbb` |
 
+</details>
+
 ## 3. Reference channels
 
 Code: [`uwbench/channels/`](uwbench/channels/). Scenarios:
 [`configs/scenarios/`](configs/scenarios/). Each channel implements
-`forward(x, snr_db, rng) -> y` once in PyTorch. It is differentiable for training, and
-calling it on NumPy arrays gives the evaluation mode. All randomness comes from an
-explicit `numpy.random.Generator`.
+`forward(x, snr_db, rng) -> y` once in PyTorch: it is differentiable for training, and
+the same code serves evaluation. All randomness comes from an explicit
+`numpy.random.Generator`.
 
-**Conventions**
-- Symbols are `(B, n)`, one row per image.
-- Acoustic and AWGN channels take complex baseband symbols, normalised to `E|x|² = 1`
-  per row.
-- Optical channels take real non-negative intensities, normalised to unit mean optical
-  power per row.
-- Channels return symbols after perfect-CSI compensation.
-- `snr_db` may be a scalar, one value per row, or `None` (noiseless).
+**Conventions.** Symbols are `(B, n)`, one row per image. Acoustic and AWGN channels take
+complex baseband symbols normalised to `E|x|² = 1` per row. Optical channels take real
+non-negative intensities normalised to unit mean optical power per row. Channels return
+the receiver's estimate with perfect channel knowledge (CSI). `snr_db` is a scalar, one
+value per row, or `None` (noiseless).
 
 ### 3.1 AWGN (control)
 
-- Model: y = x + n, with n ~ CN(0, σ²).
-- SNR = E|x|² / σ² = 1/σ².
+y = x + n, n ~ CN(0, σ²), SNR = 1/σ².
 
 ### 3.2 Modelled acoustic channel with OFDM (`uac_ofdm`)
 
-Formulas: Lucani, Médard and Stojanovic, arXiv:0801.0426, eqs. (1)–(8), citing
-Stojanovic, WUWNet 2006 / ACM MC2R 2007. They are consistent with eq. (1) of the survey.
+Formulas from Lucani, Médard and Stojanovic, arXiv:0801.0426, eqs. (1)–(8), consistent
+with eq. (1) of the survey.
 
 - **Path loss:** A(l, f) = l^k a(f)^l, with l in km and k = 1.5.
 - **Absorption (Thorp):** 10 log a(f) = 0.11 f²/(1+f²) + 44 f²/(4100+f²) + 2.75·10⁻⁴ f²
-  + 0.003, in dB/km, with f in kHz.
-- **Ambient noise:** in dB re µPa/Hz, the four components below are summed in linear
-  power:
-  - 10 log N_t = 17 − 30 log f;
-  - 10 log N_s = 40 + 20(s − 0.5) + 26 log f − 60 log(f + 0.03);
-  - 10 log N_w = 50 + 7.5 √w + 20 log f − 40 log(f + 0.4);
-  - 10 log N_th = −15 + 20 log f.
+  + 0.003 dB/km, f in kHz.
+- **Ambient noise** (dB re µPa/Hz, summed in linear power): turbulence
+  17 − 30 log f; shipping 40 + 20(s − 0.5) + 26 log f − 60 log(f + 0.03); wind
+  50 + 7.5 √w + 20 log f − 40 log(f + 0.4); thermal −15 + 20 log f.
 - **Multipath:** image method in an isovelocity waveguide (pressure-release surface,
-  reflecting bottom).
-  - Paths have at most `max_reflections` bounces.
-  - Each path has amplitude r_s^{n_s} r_b^{n_b} / √A(l_p, f_c), delay l_p / c and an
-    independent uniform phase per realisation.
-  - Delays are rounded to the nearest sample, and the response is normalised to unit
-    energy.
-  - **This simplified model does not replace Bellhop**: there is no sound-speed profile,
-    no per-path frequency dependence, and no variation within a transmission.
-- **OFDM:**
-  - N subcarriers with a unitary IFFT/FFT.
-  - The cyclic prefix must be at least the delay spread; this is checked when the channel
-    is built.
-  - Subcarrier k has noise variance σ² c_k, where c_k = A(R, f_k)N(f_k) /
-    mean(A N).
-  - Equalisation is a one-tap MMSE with perfect CSI. Pilot-based estimation is a `TODO`.
-- **Doppler:** only a residual frequency offset per OFDM symbol, ε ~ N(0, cfo_std²) in
-  subcarrier spacings. Wideband time compression is out of scope in version 1.0.
-- **SNR:** the average received SNR per subcarrier, 1/σ². The magnitude of the path
-  loss is absorbed in the SNR; its frequency dependence shapes c_k.
+  reflecting bottom), at most `max_reflections` bounces. Each path has amplitude
+  r_s^{n_s} r_b^{n_b} / √A(l_p, f_c), delay l_p / c and a random phase per realisation;
+  the response has unit energy. There is no sound-speed profile: this model is a common
+  reference, not a substitute for Bellhop.
+- **OFDM:** unitary FFT, cyclic prefix at least the delay spread (checked). Subcarrier k
+  has noise variance σ² c_k, with c_k = A(R, f_k) N(f_k) / mean(A N). One-tap MMSE
+  equalisation with perfect CSI.
+- **Doppler:** a residual frequency offset per OFDM symbol, ε ~ N(0, cfo_std²)
+  subcarrier spacings. Wideband time compression is not modelled.
+- **SNR:** average received SNR per subcarrier, 1/σ².
 
-### 3.3 Optical IM/DD channel (`uwoc`)
+### 3.3 Watermark replay (`watermark_ofdm`)
 
-y = h s + n, with h = h_l h_a h_p (block fading per image). With perfect CSI, the
-zero-forcing estimate is r = y / h, with noise variance v. Learned models receive the
-linear MMSE estimate 1 + (r − 1) / (1 + v) (unit AC power around the DC bias), as the
-acoustic channel equalises with MMSE; the separation baseline uses r and v for its LLRs.
-With r alone, a Gamma-Gamma fade 100 times below the mean (`uwoc_turbulence_moderate`)
-sent noise of standard deviation ~4000 into ADJSCC's decoder, whose GDN layers
-overflowed to NaN.
+Replay of the measured channels of van Walree et al., IEEE JOE 2017. The data
+(`WatermarkV1.zip`, FFI) is not redistributed; see DATASETS.md.
 
-- **Attenuation h_l = exp(−c d):** Beer–Lambert, eq. (2) of the survey. The coefficient
-  c comes from Table III ([`configs/uwoc_water.yaml`](configs/uwoc_water.yaml), 532 nm):
-  clear ocean 0.15, coastal ocean 0.305, turbid harbor 2.17 m⁻¹. Pure water is not in
-  Table III.
-- **Turbulence h_a, with E[h_a] = 1:**
-  - log-normal: h_a = exp(2X), X ~ N(−σ², σ²), σ² = ln(1 + SI)/4;
-  - Gamma-Gamma: SI = 1/α + 1/β + 1/(αβ).
-- **Pointing h_p:** Farid and Hranilovic (JLT 2007), h_p = A₀ exp(−2r²/w²_zeq), with a
-  Rayleigh-distributed radial displacement r.
-- **Receiver noise:** Gaussian, with variance σ²_th (1 + ζ h s). Here ζ is the ratio of
-  shot to thermal noise variance; ζ = 0 means thermal noise only.
-- **IM/DD constraints:**
-  - the input must be non-negative, and the channel rejects it otherwise;
-  - the mean optical power is normalised to 1;
-  - analog symbols are mapped by DC bias and clipping, `bias_and_clip`.
-- **SNR:** the transmit electrical SNR, 1/σ²_th. The received SNR is SNR · h², so water
-  type, distance, turbulence and pointing shift the curves as in a link budget.
+- Each `.mat` file holds a time-varying impulse response (snapshots × K taps). The replay
+  is an exact port of `replayfilter.m` (linear interpolation between snapshots), checked
+  against the MATLAB loop.
+- OFDM at `fs_tau` in the channel band, with a cyclic prefix of at least K − 1 samples.
+  Each image uses a random file and start time.
+- Perfect CSI is the frequency response averaged over each FFT window; equalisation is
+  one-tap MMSE. The residual inter-carrier interference is part of the channel: with
+  NOF1 and N = 1024, the error floor is −9.2 dB without noise. This is why a replayed
+  channel is harder than the modelled one.
+- Each file is normalised to unit energy; white noise is added at the requested SNR. The
+  recorded ambient noise is not replayed.
 
-### 3.4 Scenarios
+### 3.4 Optical IM/DD channel (`uwoc`)
+
+y = h s + n, with h = h_l h_a h_p, constant over one image (block fading).
+
+- **Attenuation h_l = exp(−c d):** Beer–Lambert, eq. (2) of the survey, with c from
+  Table III ([`configs/uwoc_water.yaml`](configs/uwoc_water.yaml), 532 nm): clear ocean
+  0.15, coastal ocean 0.305, turbid harbor 2.17 m⁻¹.
+- **Turbulence h_a,** with E[h_a] = 1: log-normal, h_a = exp(2X) with
+  X ~ N(−σ², σ²) and σ² = ln(1 + SI)/4; or Gamma-Gamma with
+  SI = 1/α + 1/β + 1/(αβ).
+- **Pointing errors h_p:** Farid and Hranilovic (JLT 2007), h_p = A₀ exp(−2r²/w²_zeq),
+  Rayleigh radial displacement r.
+- **Noise:** Gaussian, variance σ²_th (1 + ζ h s), ζ being the shot-to-thermal ratio
+  (ζ = 0: thermal noise only).
+- **Input:** non-negative intensities (the channel rejects negative values), unit mean
+  optical power.
+- **Receiver:** with perfect CSI, r = y / h has noise variance v. Learned decoders receive
+  the linear MMSE estimate 1 + (r − 1) / (1 + v), which stays bounded in deep fades; the
+  separation baseline computes its LLRs from r and v.
+- **SNR:** transmit electrical SNR, 1/σ²_th. The received SNR is SNR · h², so water type,
+  distance, turbulence and pointing shift the curves as in a link budget.
+
+### 3.5 Scenarios
 
 | Scenario | Channel | Main parameters | SNR grid (dB) |
 | --- | --- | --- | --- |
 | `awgn` | AWGN | — | −5 : 5 : 25 |
-| `uac_modeled_short` | `uac_ofdm` | 1 km, 10–18 kHz band (f_c 14 kHz, B 8 kHz), N 1024, CP 512, depth 100 m, wind 5 m/s, s 0.5, CFO std 0.01 | −5 : 5 : 25 |
-| `uac_modeled_long` | `uac_ofdm` | 5 km, 4–8 kHz band (f_c 6 kHz, B 4 kHz), N 256, CP 64, otherwise as above | −5 : 5 : 25 |
-| `uwoc_clear` | `uwoc` | clear ocean, 20 m (Beer–Lambert loss 26.1 dB) | −5 : 5 : 50 |
+| `uac_modeled_short` | `uac_ofdm` | 1 km, 10–18 kHz (f_c 14 kHz, B 8 kHz), N 1024, CP 512, depth 100 m, wind 5 m/s, s 0.5, CFO std 0.01 | −5 : 5 : 25 |
+| `uac_modeled_long` | `uac_ofdm` | 5 km, 4–8 kHz (f_c 6 kHz, B 4 kHz), N 256, CP 64, otherwise as above | −5 : 5 : 25 |
+| `uac_watermark_nof1` | `watermark_ofdm` | NOF1 (Oslofjord, 10–18 kHz), N 1024, CP 2048 samples at 16 kHz | −5 : 5 : 25 |
+| `uwoc_clear` | `uwoc` | clear ocean, 20 m (loss 26.1 dB) | −5 : 5 : 50 |
 | `uwoc_coastal` | `uwoc` | coastal ocean, 10 m (26.5 dB) | −5 : 5 : 50 |
 | `uwoc_turbid` | `uwoc` | turbid harbor, 2 m (37.7 dB) | −5 : 5 : 50 |
 | `uwoc_turbulence_weak` | `uwoc` | clear ocean, 20 m, log-normal SI 0.1 | −5 : 5 : 50 |
 | `uwoc_turbulence_moderate` | `uwoc` | clear ocean, 20 m, Gamma-Gamma α = β = 4 (SI 0.5625) | −5 : 5 : 50 |
 | `uwoc_pointing` | `uwoc` | clear ocean, 20 m, aperture radius 5 cm, beam radius 20 cm, jitter 5 cm | −5 : 5 : 50 |
 
-The acoustic bands are the three Watermark bands (van Walree et al., IEEE JOE 2017).
-
-`TODO(verify)`, to be confirmed by the maintainers:
-- the scenario parameters that come neither from the survey nor from cited formulas:
-  distances, geometry, wind, reflection coefficients, residual CFO, scintillation
-  indices, pointing parameters;
-- the final SNR grids;
-- the Table III coefficients.
-
-### 3.5 Watermark replay (`watermark_ofdm`)
-
-Source: van Walree et al., IEEE JOE 2017 (survey ref. [248]). The data, `WatermarkV1.zip`
-from FFI, is not redistributed (see DATASETS.md).
-
-- **Channel files.** Each `.mat` holds a complex baseband time-varying impulse response
-  `h`, of size snapshots × K taps, with `fs_t = fs_tau / K`, plus `fc`, `V0` and
-  `meta.bandwidth`. This format was verified on the archive.
-- **Replay.** The replay ports `replayfilter.m` exactly:
-  y[k] = Σ_l x[k−l] g_p[l], with g_p = (1−f) h[n] + f h[n+1], n = ⌊p/K⌋ and f = p/K − n.
-  The tests check it against the MATLAB sample loop, on synthetic and real files.
-- **OFDM.**
-  - The signal is sampled at `fs_tau`, with N subcarriers in the channel band.
-  - The cyclic prefix is at least K − 1 samples, covering the whole recorded delay
-    window.
-  - Each image uses a random file and a random start time.
-- **Perfect CSI.** It is the diagonal of the channel matrix: the frequency response of
-  the TVIR averaged over each FFT window. Equalisation is a one-tap MMSE.
-- **Normalisation and noise.**
-  - Each file is normalised to unit mean energy.
-  - White noise is added at the requested SNR, defined as for 3.2. The recorded ambient
-    noise is not replayed.
-  - `V0` is not used, which is `TODO(verify)`: it is described in FFI-rapport
-    2016/01378.
-- **Time variation, measured.**
-  - NOF1 snapshots correlate at 0.89 at 128 ms; NCS1 snapshots at 0.78 at 32 ms.
-  - With the shortest symbols the NOF1 window allows (N = 1024, 128 ms), OFDM with
-    perfect CSI reaches an NMSE of −9.2 dB without noise and −11.6 dB at 25 dB SNR.
-  - This interference floor is a property of the measured channel. It is the reason a
-    replayed channel is harder than the modelled one.
-
-| Scenario | Channel | Main parameters | SNR grid (dB) |
-| --- | --- | --- | --- |
-| `uac_watermark_nof1` | `watermark_ofdm` | NOF1 (Oslofjord, 10–18 kHz), N 1024, CP 2048 samples at 16 kHz | −5 : 5 : 25 |
+The acoustic bands are Watermark bands. Distances, geometry, wind, reflection
+coefficients, residual CFO, scintillation indices and pointing parameters are choices of
+this benchmark, not values from the survey.
 
 ## 4. Metrics
 
-Code: [`uwbench/metrics/`](uwbench/metrics/). Every metric returns one value per image.
-The dataset aggregate is the mean over images; its 95 % confidence interval comes with
-the evaluation engine.
+Code: [`uwbench/metrics/`](uwbench/metrics/). Every metric is computed per image; results
+report the mean over images with a 95 % confidence interval.
 
-### 4.1 Fidelity (`fidelity.py`)
+**Fidelity.** Reconstructions are clamped to [0, 1] and scored in floating point.
+- **PSNR:** 10 log₁₀(1/MSE) per image, over all pixels and colour channels, averaged over
+  images. Identical images score 100 dB instead of infinity.
+- **MS-SSIM:** `pytorch_msssim` with its defaults (window 11, σ = 1.5, five scales). Both
+  image sides must be at least 161 px; every test image of the six datasets is.
+- **LPIPS:** `lpips` 0.1.4, AlexNet backbone, inputs in [−1, 1]. Lower is better.
 
-Reconstructions are clamped to [0, 1] and scored in float, without 8-bit quantisation.
+**Rate.**
+- Digital schemes: bpp = n_bits / (H W), measured on the actual codestream.
+- Analog schemes: bandwidth ratio ρ = k / n, with n = C H W source components and k
+  channel uses per image (Bourtsoulatze et al., 2019). A channel use is one complex symbol
+  on AWGN and acoustic channels, one real symbol on the optical channel.
+- Conversion: a scheme carrying η information bits per channel use satisfies
+  **ρ = bpp / (C η)**. For example, 0.5 bpp with QPSK and a rate-1/2 code on RGB images
+  gives ρ = 1/6.
 
-- **PSNR**
-  - Per image: 10 log₁₀(1 / MSE), with the MSE over all pixels and colour channels and a
-    data range of 1. Averaged over images, not computed from the mean MSE.
-  - Identical images give the documented ceiling of **100 dB** instead of infinity, so
-    the means stay finite.
-- **MS-SSIM**
-  - Wang, Simoncelli and Bovik, Asilomar 2003, via `pytorch_msssim` with its defaults:
-    window 11, σ = 1.5, and the five scale weights of the paper.
-  - The five scales need both image sides to be at least **161 px**, and smaller images
-    are rejected. All test images of the six datasets meet this; the smallest side found
-    is 168 px, in UIEB.
-- **LPIPS**
-  - Zhang et al., CVPR 2018, `lpips` 0.1.4 with the **AlexNet** backbone, as in the
-    literature. Inputs are mapped to [−1, 1]. Lower is better.
+**Complexity.** Parameters; FLOPs per image from `torch.utils.flop_counter` (one
+multiply-add = 2 FLOPs; matrix products and convolutions); latency as mean, standard
+deviation and median after warm-up, always reported with the platform.
 
-### 4.2 Rate (`rate.py`)
-
-- **Digital schemes:** bits per pixel, bpp = n_bits / (H W), measured on the actual
-  codestream.
-- **Analog schemes:** bandwidth ratio ρ = k / n, where n = C H W source components and k
-  channel uses per image. This follows Bourtsoulatze et al., TCCN 2019 (survey ref.
-  [55]).
-  - A channel use is one complex symbol on the AWGN and acoustic channels.
-  - It is one real symbol on the optical IM/DD channel.
-- **Conversion:** a digital scheme carrying η information bits per channel use (code
-  rate × bits per modulation symbol) needs k = bpp H W / η channel uses. Hence
-  **ρ = bpp / (C η)** and **bpp = ρ C η**. For example, 0.5 bpp with QPSK and a rate-1/2
-  code on RGB images gives ρ = 1/6.
-
-### 4.3 Complexity (`complexity.py`)
-
-- **Parameters:** the number of model parameters.
-- **FLOPs per image:** from `torch.utils.flop_counter.FlopCounterMode`, where one
-  multiply-add counts as 2 FLOPs. Matrix products and convolutions are covered;
-  elementwise operations are not.
-- **Latency:** the wall-clock inference time, as mean, standard deviation and median
-  over repeated runs after warm-up, with CUDA synchronisation. It is always reported
-  with the platform: OS, Python, PyTorch, CPU, threads and GPU.
-
-### 4.4 Task metric (deferred)
-
-The optional mIoU on SUIM needs a frozen, public, pre-trained segmenter. The only
-official one found is SUIM-Net. Its checkpoints ship as Keras/TensorFlow `.hdf5` files
-in the SUIM archive (`Checkpoint_Data/`). Using them would add a TensorFlow dependency,
-and no verified PyTorch port exists. The task metric is therefore **not part of version
-1.0**.
+A task metric (mIoU on SUIM) is not part of version 1.0: the only official segmenter is a
+Keras model without a verified PyTorch port.
 
 ## 5. Separate source-channel coding baseline
 
-Code: [`uwbench/baselines/`](uwbench/baselines/). Install it with
-`pip install -e .[baseline]`.
+Code: [`uwbench/baselines/`](uwbench/baselines/) (`pip install -e .[baseline]`).
 
-### 5.1 Chain
+```mermaid
+flowchart LR
+    I[Image] --> J["JPEG 2000<br/>best quality within budget"]
+    J --> P["Packets<br/>+ CRC-32"]
+    P --> L["5G NR LDPC<br/>k = 1024, rate 1/2"]
+    L --> M["Modulation<br/>BPSK/QPSK/16-QAM or OOK/4-PAM"]
+    M --> CH{{Channel}}
+    CH --> DM["Exact soft<br/>demapping"]
+    DM --> LD["LDPC<br/>decoding"]
+    LD --> CRC{"All CRCs<br/>pass?"}
+    CRC -- yes --> JD["JPEG 2000<br/>decoding"]
+    CRC -- no --> G["Failure:<br/>mid-grey image"]
+```
 
 1. **Budget.** k_ch = ⌊ρ C H W⌋ channel uses. With m bits per symbol and an LDPC code
-   (k, n), this gives N = ⌊k_ch m / n⌋ packets of k − 32 payload bits each.
-2. **Source coding.**
-   - **JPEG** (libjpeg, quality 1–95) or **JPEG 2000** (OpenJPEG through Pillow, 9/7
-     wavelet, one layer). JPEG 2000 is the reference codec.
-   - The encoding is the best quality whose actual size fits the budget, found by
-     bisection on the codec parameter. The achieved bpp, headers included, is recorded.
-   - Zero padding after the codestream is tolerated by both decoders, so no length is
-     transmitted.
-   - BPG is not included in version 1.0, because `bpgenc` was not available to test it.
-3. **CRC.** Each packet ends with the CRC-32 of its payload (`zlib.crc32`).
-4. **LDPC.** 5G NR LDPC codes (3GPP TS 38.212) with belief-propagation decoding (20
-   iterations), from NVIDIA Sionna (`sionna-no-rt` ≥ 2.2: PyTorch, Apache-2.0, an
-   optional dependency of this module only). Default k = 1024 and rate 1/2.
-5. **Modulation** (Gray labelling):
-   - BPSK, QPSK and 16-QAM, at unit power, for the AWGN and acoustic channels;
-   - OOK {0, 2} and 4-PAM {0, 2/3, 4/3, 2}, at unit mean intensity, for the optical
-     channel.
-6. **Receiver.**
-   - The channel's `forward_csi` returns an unbiased zero-forcing estimate and the
-     per-symbol noise variance, with perfect CSI. For Watermark this variance excludes
-     the inter-carrier interference; for UWOC it evaluates the shot noise at the mean
-     intensity.
-   - Soft demapping is **exact**: log-sum-exp LLRs, log p(b=1)/p(b=0).
-   - Then LDPC decoding, the CRC check, and source decoding.
+   (k, n), N = ⌊k_ch m / n⌋ packets of k − 32 payload bits.
+2. **Source coding.** JPEG 2000 (OpenJPEG via Pillow, the reference codec) or JPEG, at
+   the best quality whose actual size, headers included, fits the budget (bisection).
+3. **CRC-32** at the end of each packet.
+4. **LDPC.** 5G NR codes (3GPP TS 38.212), 20 belief-propagation iterations, from NVIDIA
+   Sionna. Default k = 1024, rate 1/2.
+5. **Modulation** (Gray labelling): BPSK, QPSK, 16-QAM at unit power for complex
+   channels; OOK {0, 2} and 4-PAM {0, 2/3, 4/3, 2} at unit mean intensity for the optical
+   channel.
+6. **Receiver.** Zero-forcing estimate and per-symbol noise variance with perfect CSI,
+   exact log-sum-exp LLRs, LDPC decoding, CRC check, source decoding.
 
-### 5.2 Failure policy
+**Failure policy.** An image is not decoded when the budget cannot hold the
+lowest-quality codestream, when any packet fails its CRC, or when the codestream does not
+decode. The failure rate is reported separately. Curves that include failures score an
+undecoded image on a uniform mid-grey image (value 128: 11.8 dB on UIEB).
 
-An image is **not decoded** in three cases:
-- the budget cannot hold even the lowest-quality codestream;
-- any packet fails its CRC;
-- the codestream does not decode.
+**Ideal adaptation.** Each (modulation, rate) pair is a separate scheme; the ideal
+adaptation curve takes, at each SNR, the best one by mean PSNR including failures.
 
-The failure rate is reported separately from the fidelity of decoded images. Curves that
-include failures replace an undecoded image by a uniform mid-grey image (value 128).
+**Ideal separation bound.** JPEG 2000 at bpp = ρ C C̄, received without error, where C̄
+is the capacity per channel use of the current realisation (mean log₂(1 + 1/vᵢ) for
+complex channels, half of it for the real optical channel). It is not achievable
+(infinite blocks, Gaussian inputs, no non-negativity constraint, no inter-carrier
+interference) and it bounds separation with JPEG 2000 only: when the capacity is too low
+for JPEG 2000 to code the image at all, it falls back to the mid-grey image, and a joint
+scheme can do better.
 
-### 5.3 Ideal separation bound
-
-- The source rate is bpp = ρ C C̄.
-  - C̄ is the capacity per channel use of the current realisation, with perfect CSI and
-    uniform power: mean log₂(1 + 1/vᵢ) for complex channels, and half of that for the
-    real optical channel.
-  - vᵢ is the noise variance the channel reports for a unit-power probe.
-- The JPEG 2000 codestream at that rate is assumed received without error.
-- This bound is not achievable: it assumes infinite blocks and Gaussian inputs,
-  disregards the IM/DD non-negativity, and ignores inter-carrier interference on
-  replayed channels.
-
-### 5.4 Modulation and coding per SNR
-
-- **Configurations.** Each (modulation, code rate) pair is evaluated as a separate
-  scheme. The default sets are {BPSK, QPSK, 16-QAM} × 1/2 for complex channels and
-  {OOK, 4-PAM} × 1/2 for optical ones.
-- **Ideal adaptation.** The "ideal adaptation" curve takes, at each SNR, the best pair
-  of the grid, by mean PSNR including failures.
-
-### 5.5 Tests
-
-- Uncoded BPSK and QPSK BER on AWGN matches theory within 10 % at 10⁻³ (2·10⁶ bits).
-- The LDPC code has a waterfall: with QPSK at rate 1/2, BER > 10⁻² at −1 dB, and no
-  error in 204,800 bits at 3 dB, where uncoded QPSK has ≈ 2·10⁻².
-- The noiseless chain returns the transmitted JPEG 2000 codestream bit for bit, with
-  QPSK, 16-QAM and OOK.
-- The CRC detects errors, the codecs respect the rate budget, and the failure policy
-  applies the fallback.
-- The capacity probe matches log₂(1 + SNR) on AWGN and ½ log₂(1 + SNR h²) on the
-  optical channel.
-
-## 6. Evaluation and reporting
+## 6. Evaluation and results
 
 Code: [`uwbench/eval/`](uwbench/eval/).
 
-### 6.1 `uwbench evaluate`
+**`uwbench evaluate`** runs one system over the SNR grid of one scenario, on one split of
+one dataset.
+- The image sent is the `input` role of paired datasets (the raw, degraded image) and the
+  `image` role otherwise; it is scored against itself.
+- `--realizations` independent channel draws per image and SNR (default 1).
+- Image *i* uses `numpy.random.default_rng([seed, i])`, so results do not depend on the
+  number of workers.
+- `--snr-step` refines the grid over the same range.
 
-- **What is transmitted.** One system (`configs/baselines/*.yaml`) is run over the SNR grid
-  of one scenario (`configs/scenarios/*.yaml`), on one split of one dataset. The image
-  sent is the `input` role for paired datasets and the `image` role otherwise, and it is
-  scored against itself. `TODO(verify)`: whether the reference image of paired datasets
-  should be transmitted instead.
-- **Realisations.** `--realizations` independent channel draws are made per image and
-  SNR. The default is 1, and every draw is recorded.
-- **Seeds.** Image *i* uses `numpy.random.default_rng([seed, i])`, so results do not
-  depend on the number of worker processes. Only floating-point sums of the metrics may
-  differ in the last digits, which the CI test checks.
-- **Grid.** `--snr-step` refines the scenario grid over the same range. It is recorded
-  in the JSON and, like `--limit`, appended to the output file names.
-- **Speed.**
-  - Images run in parallel processes, with one thread each.
-  - The source encoding is computed once per (image, scheme).
-  - The JPEG 2000 rate search starts from the OpenJPEG rate estimate: about 10 encodings.
-  - Metrics are cached per distinct reconstruction.
-  - LDPC decoding runs on the GPU when available (`device: auto`).
-  - Each finished image is saved at once (`<run>.partial.jsonl`), and an interrupted
-    run resumes from it.
-  - Measured cost on a laptop (RTX 500, 4 GB, 1 worker), with 31 SNR points:
-    - about 70 s per UIEB image for the separation baseline (3 modulations);
-    - about 90 s per image for the ideal bound, whose JPEG 2000 rate search is repeated
-      at every SNR.
-    - These figures come from 5 images of 0.45 Mpx; the UIEB test average is 0.63 Mpx.
+**Result schema 1.0.** `<out>/<system>_<scenario>_<dataset>_<split>.json` contains:
+- the configuration: `system`, `scenario`, `dataset`, `split`, `n_images`, `snr_db`,
+  `realizations`, `seed`, `limit`;
+- `results`, one entry per (scheme, SNR): `n`; `failure_rate` (mean, 95 % Wilson
+  interval); `bpp` of decoded images; `bandwidth_ratio_used`; `metrics` with `psnr`,
+  `ms_ssim` and `lpips`, each as `_all` (failures scored on the fallback image) and
+  `_decoded` (decoded images only), with mean and 95 % Student-t interval. Separation
+  systems add `ideal_adaptation`, with the chosen scheme in `selected_scheme`;
+- `provenance`: git commit and uncommitted changes, uwbench and library versions,
+  platform, UTC time, command line;
+- `per_image_csv`: the file with one row per (scheme, SNR, realisation, image).
 
-### 6.2 Result schema (version 1.0)
-
-`<out>/<system>_<scenario>_<dataset>_<split>.json` contains:
-
-- **Configuration:** `system` and `scenario` (full configurations), `dataset`, `split`,
-  `n_images`, `snr_db` (the grid used), `realizations`, `seed`, and `limit` (when a
-  subset was used).
-- **`results`:** one entry per (scheme, SNR).
-  - `n`.
-  - `failure_rate`: mean with a 95 % Wilson interval.
-  - `bpp`: achieved source rate of the decoded images.
-  - `bandwidth_ratio_used`: channel uses actually sent per source component.
-  - `metrics`: `psnr`, `ms_ssim` and `lpips`, each in two versions:
-    - `_all`: every transmission, with undecoded images scored on the fallback image;
-    - `_decoded`: decoded images only.
-    Each value has its mean and 95 % Student-t confidence interval over the
-    transmissions.
-  - Separation systems also get `ideal_adaptation`: at each SNR, the scheme with the best
-    mean `psnr_all`, named in `selected_scheme`.
-- **`provenance`:**
-  - git commit and whether the tree had uncommitted changes;
-  - uwbench version and library versions (NumPy, SciPy, PyTorch, torchvision, Pillow,
-    pytorch-msssim, lpips, Sionna, imagehash, PyYAML);
-  - platform: OS, Python, PyTorch, CPU, threads, GPU;
-  - UTC timestamp and command line.
-- **`per_image_csv`:** the file with one row per (scheme, SNR, realisation, image).
-
-### 6.3 `uwbench report`
-
-- **Grouping.** Result files are grouped by (scenario, dataset, split). Each system, bandwidth
-  ratio and scheme becomes one curve, so several rates and systems share the same axes.
-- **Figures.** Per group, a figure with four panels against SNR:
-  - PSNR, MS-SSIM and LPIPS including failures, each with its 95 % confidence band;
-  - the failure rate, on a linear axis.
-- **Tables.** Markdown (`report.md`) and LaTeX (`report.tex`, booktabs) tables of the
-  mean PSNR including failures and of the failure rate, per curve and SNR.
+**`uwbench report`** groups result files by (scenario, dataset, split) and draws, per
+group, PSNR, MS-SSIM and LPIPS including failures with 95 % bands, and the failure rate.
+It also writes Markdown and LaTeX tables.
 
 ## 7. Learned reference models
 
@@ -491,88 +318,76 @@ Code: [`uwbench/models/`](uwbench/models/). Configurations:
 
 ### 7.1 Interface and transmission
 
-- **Interface.** A model implements `encode(x, snr_db) -> z`, a real latent, and
-  `decode(z_hat, snr_db) -> x_hat`, with the attributes `downsample` and `symbols`.
-- **Transmission** (`transmit`):
-  - the image is padded to a multiple of `downsample` (reflection), then cropped back;
-  - **complex symbols:** the flattened latent (f₁…f₂ₖ) gives the symbols fᵢ + j f_{k+i},
-    which the channel normalises to unit mean power;
-  - **real symbols (IM/DD):** s = max(0, 1 + m (f − mean f) / std(f)) per image, a
-    zero-mean AC signal of power m² on a DC bias of 1, with m = 1 by default; the bias
-    is removed after the channel. The mean is removed so that the latent cannot move
-    the operating point: with f / rms(f), DeepJSCC on `uwoc_clear` drove its latent to
-    a near-constant negative value (65 % of the symbols clipped) and lost its training
-    in one epoch when that operating point flipped. That signal was also unfair to the
-    OOK and 4-PAM baselines: at the same mean optical power it had 6.8 times the AC
-    power of OOK, with peaks 39 times the mean that a peak-limited LED or laser cannot
-    emit. With the mean removed, the same latent gives an AC power of 0.92 (OOK: 1).
-- **Bandwidth ratio.** k/n = c·h·w / (2·3·H·W) for complex symbols, without the factor 2
-  for real ones. With ρ = 1/6: c = 16 for DeepJSCC and ADJSCC (downsampling 4), and
-  c = 256 for WITT (downsampling 16), with complex symbols.
+A model implements `encode(x, snr_db) -> z` (a real latent) and
+`decode(z_hat, snr_db) -> x_hat`, with the attributes `downsample` and `symbols`. The
+benchmark transmits the latent identically for every model:
+
+```mermaid
+flowchart LR
+    X[Image] --> PAD["Pad to a multiple<br/>of downsample"]
+    PAD --> E["encode(x, snr)"]
+    E --> MAP{"symbols?"}
+    MAP -- complex --> CX["Pairs → complex symbols<br/>unit power"]
+    MAP -- real --> RX["s = max(0, 1 + m (f − mean f)/std f)<br/>DC-biased IM/DD"]
+    CX --> CH{{Channel}}
+    RX --> CH
+    CH --> D["decode(ẑ, snr)"]
+    D --> CROP[Crop back] --> XH[Reconstruction]
+```
+
+- **Complex symbols:** the flattened latent (f₁…f₂ₖ) gives fᵢ + j f_{k+i}, normalised to
+  unit mean power.
+- **Real symbols (IM/DD):** s = max(0, 1 + m (f − mean f) / std(f)) per image, a
+  zero-mean signal of power m² on a DC bias of 1 (m = 1). The mean is removed so that
+  the encoder cannot move the operating point; the AC power then matches that of OOK.
+  The bias is removed after the channel.
+- **Bandwidth ratio:** k/n = c·h·w / (2·3·H·W) for complex symbols, without the factor 2
+  for real ones. With ρ = 1/6: c = 16 for DeepJSCC and ADJSCC (downsampling 4), c = 256
+  for WITT (downsampling 16), with complex symbols.
 
 ### 7.2 Models
 
-| Model | Source of the architecture | Parameters (k/n = 1/6, complex) |
+| Model | Source of the architecture | Parameters (ρ = 1/6, complex) |
 | --- | --- | ---: |
 | DeepJSCC | Bourtsoulatze et al., TCCN 2019 (Fig. 2); open choices from `chunbaobao/Deep-JSCC-PyTorch` (inspiration) | 0.16 M |
-| ADJSCC | Official code https://github.com/alexxu1988/ADJSCC (MIT), translated from TensorFlow | 10.8 M |
-| WITT | Official code https://github.com/KeYang8/WITT (high-resolution configuration), re-written | 28.3 M (28.2 M in the paper) |
+| ADJSCC | official code https://github.com/alexxu1988/ADJSCC (MIT), translated from TensorFlow | 10.8 M |
+| WITT | official code https://github.com/KeYang8/WITT (high-resolution configuration), re-written | 28.3 M (28.2 M in the paper) |
 
-- **Licences.** The DeepJSCC and WITT repositories have no license. Their code was read
-  for its architecture and hyperparameters, but not copied. ADJSCC's code is MIT, so it
-  is translated directly with attribution.
-- **WITT, official choices kept** (where the paper differs or is silent):
-  - depths [2, 2, 6, 2] and heads [4, 6, 8, 10] in the encoder; the decoder mirrors them;
-  - no normalisation after the patch embedding, and a final LayerNorm;
-  - the Channel ModNet in its code form: M = 1.5·dim, Sigmoid SNR modulators, a
-    stop-gradient input, and a gated output x·σ(·);
-  - bias-free reverse merging;
-  - no output sigmoid, with a clamp to [0, 1] instead;
-  - truncated-normal initialisation.
-- **DeepJSCC, choices kept from the cited repository:**
-  - padding 2 and output padding 1;
-  - one PReLU parameter per layer;
-  - Kaiming/Xavier initialisation;
-  - Adam with lr 10⁻³, weight decay 5·10⁻⁴, and the learning rate halved on a plateau
-    (patience 5 here, against 15 there, so that it acts before the early stop of §7.3).
-- **ADJSCC:** GDN is re-implemented from Ballé et al., ICLR 2016, with the same formula and
-  initialisation as `tensorflow_compression`.
-- **Remaining differences:**
-  - power normalisation per image (the benchmark convention), where WITT normalises per
-    batch;
-  - padding of feature maps whose side is not a multiple of the window;
-  - single-stage training for WITT;
-  - training data and crops set by this protocol (§7.3).
-- **Claims.** No claim is made to reproduce the papers' numbers. Gaps are reported as
-  they are.
+- **Licenses.** The DeepJSCC and WITT repositories have no license: their code was read
+  for the architecture and hyperparameters, not copied. ADJSCC is MIT and translated with
+  attribution; its GDN is re-implemented from Ballé et al., ICLR 2016.
+- **DeepJSCC choices** (from the cited repository): padding 2, output padding 1, one
+  PReLU parameter per layer, Kaiming/Xavier initialisation, Adam with lr 10⁻³ and weight
+  decay 5·10⁻⁴.
+- **WITT choices** (official code where the paper differs or is silent): depths
+  [2, 2, 6, 2] and heads [4, 6, 8, 10], mirrored in the decoder; final LayerNorm; Channel
+  ModNet as in the code; clamp to [0, 1] instead of an output sigmoid.
+- **Deviations common to all:** power normalisation per image; padding of feature maps
+  whose side is not a multiple of the window (WITT); single-stage training; training data
+  and crops set by §7.3.
+- No claim is made to reproduce the papers' numbers.
 
 ### 7.3 Training (`uwbench train`)
 
-- **Data.** The `train` splits of LSUI, EUVP and UIEB, which share no duplicate with any
-  test split. Model selection uses the `val` splits.
-- **Inputs.** Random 128 × 128 crops with horizontal flips.
-- **Optimisation.** MSE loss and Adam, with the settings of each model's configuration
-  (DeepJSCC: lr 10⁻³ and weight decay; ADJSCC and WITT: lr 10⁻⁴). For all three, the
-  learning rate is halved when the validation PSNR has not improved for 5 epochs
-  (minimum 10⁻⁶). Gradients are clipped to a norm of 1: a first DeepJSCC run on
-  `uwoc_clear` diverged at epoch 51 without it (training MSE tripled in two epochs).
-  `log.csv` records the largest gradient norm of each epoch, before clipping.
-- **SNR.** The training SNR is drawn uniformly over the scenario's range. The channel is
-  the evaluation channel.
-- **Model selection.** Validation PSNR averaged over a fixed subset of 512 validation
-  images (spread over the datasets) and the scenario's SNR grid, with a fixed seed; the
-  best epoch is kept.
-- **Convergence.** Training stops when the validation PSNR has not improved for 20
-  epochs, so the learning rate has been halved several times by then; 200 epochs are only
-  a safety cap. `log.csv` shows where each run stopped.
-- **Resume.** Re-running the same command continues from `last.pt` (weights, optimiser,
-  scheduler, random generators). Only the number of epochs may change, so a run that
-  reached the cap before converging can be extended; a converged run is not continued.
-- **Outputs.** `checkpoints/<model>_<scenario>/{best,last}.pt` and `log.csv`.
-- **Budget.** `TODO(verify)`: bandwidth ratios (1/6, 1/12) and batch sizes depend on
-  the GPU budget. The batch sizes fit a 24 GB GPU (RTX 3090).
-- **Planned runs.** `uwoc_clear`, `uwoc_turbulence_moderate` and `uac_modeled_short`,
-  plus a mismatch test (trained on `uwoc_clear`, tested on `uwoc_turbid` with
-  `--checkpoint`). DeepJSCC and ADJSCC are trained for the survey. WITT is implemented
-  and tested, but its trainings (about 1 to 2 days per scenario on an RTX 3090,
-  estimated) are deferred to the extended benchmark.
+- **Data:** the `train` splits of LSUI, EUVP and UIEB (no duplicate of any test image);
+  random 128 × 128 crops with horizontal flips.
+- **Loss and optimiser:** MSE, Adam with each configuration's settings (DeepJSCC lr 10⁻³
+  with weight decay; ADJSCC and WITT lr 10⁻⁴). The learning rate is halved when the
+  validation PSNR has not improved for 5 epochs (minimum 10⁻⁶). Gradients are clipped to
+  a norm of 1.
+- **SNR:** drawn uniformly over the scenario's range, through the evaluation channel. One
+  model is trained per scenario and evaluated at every SNR of its grid.
+- **Model selection:** validation PSNR averaged over 512 fixed validation images and the
+  scenario's SNR grid; the best epoch is kept.
+- **Stopping:** after 20 epochs without improvement, or at 200 epochs.
+- **Resume:** re-running the same command continues from `last.pt`; a converged run is
+  not continued.
+- **Outputs:** `checkpoints/<model>_<scenario>/{best,last}.pt` and `log.csv` (training
+  MSE, validation PSNR, time and largest gradient norm per epoch). Batch sizes fit a 24 GB
+  GPU.
+
+**Reference runs.** DeepJSCC and ADJSCC on `uac_modeled_short`, `uwoc_clear` and
+`uwoc_turbulence_moderate`, plus a mismatch test (trained on `uwoc_clear`, tested on
+`uwoc_turbid` with `--checkpoint`). The DeepJSCC runs stopped after 52 to 144 epochs; the
+ADJSCC runs reached the 200-epoch cap with less than 0.1 dB gained over their last 50
+epochs. WITT has no reference run yet.

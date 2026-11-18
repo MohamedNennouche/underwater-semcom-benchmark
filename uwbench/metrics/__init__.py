@@ -1,1 +1,1 @@
-"""Fidelity, rate and complexity metrics (phase 5)."""
+"""Fidelity, rate and complexity metrics."""

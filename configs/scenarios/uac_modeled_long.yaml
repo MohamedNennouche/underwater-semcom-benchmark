@@ -1,8 +1,8 @@
 # Modelled acoustic link, 5 km, OFDM with perfect CSI (uwbench/channels/uac.py).
 # Band 4-8 kHz: one of the three Watermark bands (van Walree et al., IEEE JOE 2017).
 # Delay spread with 4 reflections: 44 taps (11 ms) <= cp_length.
-# TODO(verify): geometry, wind, reflection coefficients and residual CFO are benchmark
-# choices to be confirmed by the maintainers, not measured values.
+# Geometry, wind, reflection coefficients and residual CFO are benchmark choices,
+# not measured values.
 name: uac_modeled_long
 channel: uac_ofdm
 params:

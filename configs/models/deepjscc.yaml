@@ -2,7 +2,7 @@
 # https://github.com/chunbaobao/Deep-JSCC-PyTorch (inspiration): Adam, lr 1e-3, weight decay
 # 5e-4, learning rate halved on plateau (patience 5 here, 15 there: our early stop is at 20).
 # Learned system for uwbench train / uwbench evaluate (PROTOCOL.md section 7).
-# TODO(verify): bandwidth ratio (1/6 or 1/12). Batch sizes
+# Bandwidth ratio of the reference results: 1/6. Batch sizes
 # fit a 24 GB GPU (RTX 3090); lower them on smaller GPUs.
 name: deepjscc
 type: learned

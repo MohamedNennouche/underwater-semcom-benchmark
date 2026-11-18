@@ -39,7 +39,7 @@ survey with ``k`` the spreading factor.
   ``c_k = A(R, f_k) N(f_k) / mean_k[A(R, f_k) N(f_k)]``, ``R`` the range.
   Equalisation: one-tap MMSE per subcarrier with perfect channel knowledge,
   ``x_k = H_k^* Y_k / (|H_k|^2 + sigma^2 c_k)`` (zero forcing without noise).
-  TODO: pilot-based channel estimation (not in version 1.0).
+  Pilot-based channel estimation is not included in version 1.0.
 
 * Doppler: only a residual carrier frequency offset per OFDM symbol,
   ``epsilon ~ N(0, cfo_std^2)`` in units of the subcarrier spacing (inter-carrier

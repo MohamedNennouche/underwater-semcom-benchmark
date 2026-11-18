@@ -1,8 +1,8 @@
 # Beam attenuation coefficients c = a + b (1/m) at 532 nm, copied from Table III of the
-# survey manuscript ("Typical values of absorption, scattering, and attenuation
+# survey ("Typical values of absorption, scattering, and attenuation
 # coefficients based on the chlorophyll concentration", citing Khalighi et al., CRC
 # Press 2017, ref. [25]). Read by uwbench.channels.build_channel. Pure water is not in
-# Table III and is therefore not provided. TODO(verify): maintainers to confirm.
+# Table III and is therefore not provided.
 wavelength_nm: 532
 water_types:
   clear_ocean:   {chlorophyll_mg_m3: 0.31, a: 0.069, b: 0.08,  c: 0.15}

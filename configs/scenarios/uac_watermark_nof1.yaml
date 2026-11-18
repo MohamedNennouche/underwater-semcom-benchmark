@@ -6,7 +6,7 @@
 # Measured with perfect (diagonal) CSI, 16 x 8192 symbols: NMSE -9.2 dB noiseless and
 # -11.6 dB at 25 dB SNR, an inter-carrier interference floor due to the time variation
 # of NOF1 (snapshot correlation 0.89 at 128 ms). Requires the Watermark archive.
-# TODO(verify): numerology is a benchmark choice to be confirmed by the maintainers.
+# The numerology is a benchmark choice.
 name: uac_watermark_nof1
 channel: watermark_ofdm
 params:

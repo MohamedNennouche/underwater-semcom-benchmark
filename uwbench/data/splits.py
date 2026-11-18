@@ -1,6 +1,6 @@
 """``uwbench split``: frozen train/val/test partitions that preserve official test sets.
 
-Rules (``configs/splits.yaml``, decided by the maintainers on 2026-11-15):
+Rules (``configs/splits.yaml``):
 
 1. **Official test splits are kept intact** (LSUI, SUIM). Datasets without one get a
    seeded ``1 - val - test`` / ``val`` / ``test`` partition (80/10/10); datasets with one

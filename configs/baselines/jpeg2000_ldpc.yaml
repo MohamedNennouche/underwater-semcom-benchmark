@@ -1,7 +1,7 @@
 # Separate source-channel coding baseline (uwbench/baselines/separation.py, PROTOCOL.md 5).
 # One scheme per (modulation, code rate); without `mcs`, the default sets are used:
 # complex channels {BPSK, QPSK, 16-QAM} x 1/2, optical {OOK, 4-PAM} x 1/2.
-# TODO(verify): bandwidth ratio (1/6 and 1/12 proposed in the work plan).
+# Bandwidth ratio of the reference results: 1/6.
 name: jpeg2000_ldpc
 type: separation
 codec: jpeg2000
