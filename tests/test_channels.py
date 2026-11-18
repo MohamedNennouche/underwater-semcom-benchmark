@@ -183,11 +183,23 @@ def test_uwoc_noise_matches_snr_definition(zeta):
     snr_db, c, d = 20.0, 0.305, 5.0
     ch = UWOC(c, d, shot_to_thermal=zeta)
     s = torch.ones(4, 200_000, dtype=torch.float64)
-    r = ch(s, snr_db, np.random.default_rng(0))
+    r, v = ch.forward_csi(s, snr_db, np.random.default_rng(0))  # zero forcing
     h = math.exp(-c * d)
     expected = 10 ** (-snr_db / 10) * (1 + zeta * h) / h**2
     assert (r - 1).var().item() == pytest.approx(expected, rel=0.01)
+    assert v[0, 0].item() == pytest.approx(expected)
+    # forward: MMSE, (r - 1) shrunk by 1 / (1 + v); noiseless input returned unchanged
+    m = ch(s, snr_db, np.random.default_rng(0))
+    torch.testing.assert_close(m - 1, (r - 1) / (1 + expected))
     torch.testing.assert_close(ch(s, None, np.random.default_rng(0)), s)
+
+
+def test_uwoc_mmse_output_stays_bounded_in_deep_fades():
+    # 10 m of turbid harbor water: h = 4e-10, so r = y / h has noise std ~1e9; the MMSE
+    # output (what learned decoders see) stays close to the DC bias
+    s = 1 + 0.5 * torch.randn(2, 10_000, dtype=torch.float64).clamp(-2, 2)
+    out = UWOC(2.17, 10.0)(s, 0.0, np.random.default_rng(0))
+    assert torch.isfinite(out).all() and (out - 1).abs().max() < 1e-3
 
 
 # ---------------------------------------------------------------- shared properties

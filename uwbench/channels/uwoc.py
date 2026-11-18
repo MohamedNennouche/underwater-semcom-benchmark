@@ -4,6 +4,9 @@ Model (per transmitted image, block fading)::
 
     y = h * s + n,      h = h_l * h_a * h_p,      r = y / h   (perfect CSI)
 
+``forward`` returns the linear MMSE estimate ``1 + (r - 1) / (1 + v)`` (``v``: noise
+variance of ``r``); ``forward_csi`` returns ``r`` and ``v`` (zero forcing).
+
 * ``s``: real non-negative intensities, normalised to unit mean optical power
   ``mean(s) = 1`` per row (average optical power constraint).
 * ``h_l = exp(-c d)``: Beer-Lambert attenuation, eq. (2) of the survey, with ``c`` from
@@ -115,7 +118,16 @@ class UWOC(Channel):
             * sample_pointing(self.pointing, n, rng)
 
     def forward(self, s: torch.Tensor, snr_db: SNR, rng: np.random.Generator) -> torch.Tensor:
-        return self.forward_csi(s, snr_db, rng)[0]
+        """Perfect-CSI linear MMSE estimate around the DC bias, for a unit-power AC signal:
+        ``1 + (r - 1) / (1 + v)``, with ``r = y / h`` and ``v`` its noise variance.
+
+        Unlike ``r`` alone, it stays bounded in deep turbulence fades: with ``r``, a
+        Gamma-Gamma fade 100 times below the mean sent noise of standard deviation ~4000
+        into a learned decoder, whose GDN layers overflowed to NaN. The acoustic channel
+        equalises with MMSE too; the separation baseline uses :meth:`forward_csi`.
+        """
+        r, v = self.forward_csi(s, snr_db, rng)
+        return 1 + (r - 1) / (1 + v)
 
     def forward_csi(self, s: torch.Tensor, snr_db: SNR, rng: np.random.Generator):
         """As :meth:`Channel.forward_csi`. The reported variance uses the mean intensity

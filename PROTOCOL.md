@@ -199,8 +199,13 @@ Stojanovic, WUWNet 2006 / ACM MC2R 2007. They are consistent with eq. (1) of the
 
 ### 3.3 Optical IM/DD channel (`uwoc`)
 
-y = h s + n, with h = h_l h_a h_p (block fading per image). The receiver returns
-r = y / h (perfect CSI).
+y = h s + n, with h = h_l h_a h_p (block fading per image). With perfect CSI, the
+zero-forcing estimate is r = y / h, with noise variance v. Learned models receive the
+linear MMSE estimate 1 + (r − 1) / (1 + v) (unit AC power around the DC bias), as the
+acoustic channel equalises with MMSE; the separation baseline uses r and v for its LLRs.
+With r alone, a Gamma-Gamma fade 100 times below the mean (`uwoc_turbulence_moderate`)
+sent noise of standard deviation ~4000 into ADJSCC's decoder, whose GDN layers
+overflowed to NaN.
 
 - **Attenuation h_l = exp(−c d):** Beer–Lambert, eq. (2) of the survey. The coefficient
   c comes from Table III ([`configs/uwoc_water.yaml`](configs/uwoc_water.yaml), 532 nm):
