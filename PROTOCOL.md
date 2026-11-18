@@ -568,4 +568,6 @@ Code: [`uwbench/models/`](uwbench/models/). Configurations:
   the GPU budget. The batch sizes fit a 24 GB GPU (RTX 3090).
 - **Planned runs.** `uwoc_clear`, `uwoc_turbulence_moderate` and `uac_modeled_short`,
   plus a mismatch test (trained on `uwoc_clear`, tested on `uwoc_turbid` with
-  `--checkpoint`).
+  `--checkpoint`). DeepJSCC and ADJSCC are trained for the survey. WITT is implemented
+  and tested, but its trainings (about 1 to 2 days per scenario on an RTX 3090,
+  estimated) are deferred to the extended benchmark.
