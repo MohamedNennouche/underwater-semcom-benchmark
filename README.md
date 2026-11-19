@@ -10,7 +10,7 @@ Existing works evaluate their schemes on different channels, datasets, rates and
 - **reference channels:** modelled and measured (Watermark) acoustic links, optical IM/DD links with attenuation, turbulence and pointing errors;
 - **frozen, deduplicated splits** of six public underwater image datasets;
 - **metrics:** PSNR, MS-SSIM, LPIPS, failure rate, rate and complexity;
-- **baselines:** a separate source-channel coding chain (JPEG 2000 + 5G NR LDPC) with its ideal separation bound, and re-implemented DeepJSCC and ADJSCC;
+- **baselines:** a separate source-channel coding chain (JPEG 2000 + 5G NR LDPC) with a JPEG 2000-at-capacity reference, and re-implemented DeepJSCC and ADJSCC;
 - **one result format and report**, with full provenance.
 
 The full specification is in [PROTOCOL.md](PROTOCOL.md).
@@ -43,7 +43,7 @@ UIEB test split (89 images), bandwidth ratio ρ = k/n = 1/6, one channel realisa
 ![LPIPS versus SNR](docs/figures/lpips.png)
 
 - The separation chain shows the **cliff effect**: no image is decoded below a threshold SNR (mid-grey fallback, 11.8 dB), then the quality saturates.
-- **ADJSCC degrades gracefully.** It delivers 29.2 dB at −5 dB on the acoustic link, where the separation chain decodes nothing, and stays 1.7 to 5.3 dB below the ideal separation bound.
+- **ADJSCC degrades gracefully.** It delivers 29.2 dB at −5 dB on the acoustic link, where the separation chain decodes nothing, and stays 1.7 to 5.3 dB below JPEG 2000 at capacity (an ideal channel code carrying a JPEG 2000 image); it goes above it at low SNR, where JPEG 2000 has too few bits to code any image, and in LPIPS.
 - **DeepJSCC** (0.16 M parameters, not SNR-aware) saturates at 28.3 dB (acoustic) and 24.6 dB (optical).
 - Under **mismatch** (d), ADJSCC is told an SNR 11.6 dB too high and loses up to 5 dB at low SNR, while the SNR-agnostic DeepJSCC follows its clear-ocean curve.
 
@@ -224,7 +224,7 @@ Deviations from the papers are listed in PROTOCOL.md §7. Trained weights are no
 | Deduplication and frozen splits | `uwbench/data/`, `splits/`, `configs/splits.yaml` |
 | Channels: AWGN, modelled acoustic OFDM, Watermark replay, optical IM/DD | `uwbench/channels/`, `configs/scenarios/` |
 | Metrics: PSNR, MS-SSIM, LPIPS, bpp and k/n, parameters, FLOPs, latency | `uwbench/metrics/` |
-| Separation baseline (JPEG or JPEG 2000, CRC-32, LDPC, BPSK to 16-QAM or OOK/4-PAM) and ideal bound | `uwbench/baselines/`, `configs/baselines/` |
+| Separation baseline (JPEG or JPEG 2000, CRC-32, LDPC, BPSK to 16-QAM or OOK/4-PAM) and JPEG 2000 at capacity | `uwbench/baselines/`, `configs/baselines/` |
 | Evaluation engine, result schema, report | `uwbench/eval/` |
 | Model interface, training, DeepJSCC, ADJSCC, WITT | `uwbench/models/`, `configs/models/` |
 | Reference results and figures | `reference_results/`, `docs/figures/`, `scripts/` |

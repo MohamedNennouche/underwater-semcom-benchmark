@@ -1,7 +1,7 @@
 {
   "title": "UWBench: reference evaluation protocol for underwater semantic communications",
   "upload_type": "software",
-  "description": "UWBench is the reference implementation of the unified evaluation protocol proposed in the survey 'Enabling Intelligence in the Deep: A Comprehensive Survey of Semantic Communications for Underwater Wireless Systems'. It provides reference acoustic and optical channels (including replay of the measured Watermark channels), frozen and deduplicated dataset splits, fidelity, rate and complexity metrics, a separate source-channel coding baseline (JPEG 2000 + 5G NR LDPC) with its ideal separation bound, re-implemented DeepJSCC and ADJSCC baselines, reference results and a common result format. No third-party data is redistributed.",
+  "description": "UWBench is the reference implementation of the unified evaluation protocol proposed in the survey 'Enabling Intelligence in the Deep: A Comprehensive Survey of Semantic Communications for Underwater Wireless Systems'. It provides reference acoustic and optical channels (including replay of the measured Watermark channels), frozen and deduplicated dataset splits, fidelity, rate and complexity metrics, a separate source-channel coding baseline (JPEG 2000 + 5G NR LDPC) with a JPEG 2000-at-capacity reference, re-implemented DeepJSCC and ADJSCC baselines, reference results and a common result format. No third-party data is redistributed.",
   "license": "MIT",
   "creators": [
     {"name": "Nennouche, Mohamed"}

@@ -274,11 +274,12 @@ undecoded image on a uniform mid-grey image (value 128: 11.8 dB on UIEB).
 **Ideal adaptation.** Each (modulation, rate) pair is a separate scheme; the ideal
 adaptation curve takes, at each SNR, the best one by mean PSNR including failures.
 
-**Ideal separation bound.** JPEG 2000 at bpp = ρ C C̄, received without error, where C̄
+**JPEG 2000 at capacity** (system `ideal_separation`). JPEG 2000 at bpp = ρ C C̄, received without error, where C̄
 is the capacity per channel use of the current realisation (mean log₂(1 + 1/vᵢ) for
-complex channels, half of it for the real optical channel). It is not achievable
+complex channels, half of it for the real optical channel). This ideal channel code is not achievable
 (infinite blocks, Gaussian inputs, no non-negativity constraint, no inter-carrier
-interference) and it bounds separation with JPEG 2000 only: when the capacity is too low
+interference). The curve is therefore an upper limit for separation with JPEG 2000, not
+for joint coding, whose source coding is not JPEG 2000: when the capacity is too low
 for JPEG 2000 to code the image at all, it falls back to the mid-grey image, and a joint
 scheme can do better.
 

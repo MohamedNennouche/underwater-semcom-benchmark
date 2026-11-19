@@ -1,4 +1,4 @@
-"""Separate source-channel coding baseline and ideal separation bound.
+"""Separate source-channel coding baseline and JPEG 2000 at capacity.
 
 Chain (:class:`SeparationScheme`), per image of size ``H x W x C``:
 
@@ -18,7 +18,7 @@ Results keep this flag; the failure rate is reported separately from the fidelit
 decoded images. For curves that include failures, an undecoded image is replaced by a
 uniform mid-grey image (value 128), documented as ``FALLBACK_VALUE``.
 
-Ideal separation bound (:func:`ideal_separation`): the source rate equals the channel
+JPEG 2000 at capacity (:func:`ideal_separation`): the source rate equals the channel
 capacity times the bandwidth ratio, ``bpp = rho C Cbar`` with ``Cbar`` the capacity per
 channel use of the current realisation with perfect CSI and uniform power,
 ``mean_i log2(1 + 1 / v_i)`` for complex channels and ``mean_i 0.5 log2(1 + 1 / v_i)``

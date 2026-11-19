@@ -24,7 +24,7 @@ PANELS = [("uac_modeled_short", "(a) Acoustic, 1 km, 10–18 kHz"),
           ("uwoc_turbulence_moderate", "(c) Optical, clear ocean, 20 m, turbulence"),
           ("uwoc_turbid", "(d) Optical, turbid harbor, 2 m (mismatch)")]
 # (file prefix, scheme inside the file, legend label, style)
-CURVES = [("ideal_separation", "ideal_separation", "Ideal separation bound",
+CURVES = [("ideal_separation", "ideal_separation", "JPEG 2000 at capacity (ideal channel code)",
            {"color": "0.4", "linestyle": "--"}),
           ("jpeg2000_ldpc", "ideal_adaptation", "JPEG 2000 + LDPC (ideal adaptation)",
            {"color": "tab:red", "marker": "s"}),
