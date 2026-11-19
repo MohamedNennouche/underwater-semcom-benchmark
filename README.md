@@ -4,19 +4,13 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24355730.svg)](https://doi.org/10.5281/zenodo.24355730)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**UWBench** is a benchmark for underwater semantic communications. It is the reference
-implementation of the unified evaluation protocol proposed in the survey *Enabling
-Intelligence in the Deep: A Comprehensive Survey of Semantic Communications for Underwater
-Wireless Systems*.
+**UWBench** is a benchmark for underwater semantic communications. It is the reference implementation of the unified evaluation protocol proposed in the survey *Enabling Intelligence in the Deep: A Comprehensive Survey of Semantic Communications for Underwater Wireless Systems*.
 
-Existing works evaluate their schemes on different channels, datasets, rates and metrics,
-so their results cannot be compared. UWBench fixes these choices once:
-- **reference channels:** modelled and measured (Watermark) acoustic links, optical IM/DD
-  links with attenuation, turbulence and pointing errors;
+Existing works evaluate their schemes on different channels, datasets, rates and metrics, so their results cannot be compared. UWBench fixes these choices once:
+- **reference channels:** modelled and measured (Watermark) acoustic links, optical IM/DD links with attenuation, turbulence and pointing errors;
 - **frozen, deduplicated splits** of six public underwater image datasets;
 - **metrics:** PSNR, MS-SSIM, LPIPS, failure rate, rate and complexity;
-- **baselines:** a separate source-channel coding chain (JPEG 2000 + 5G NR LDPC) with its
-  ideal separation bound, and re-implemented DeepJSCC and ADJSCC;
+- **baselines:** a separate source-channel coding chain (JPEG 2000 + 5G NR LDPC) with its ideal separation bound, and re-implemented DeepJSCC and ADJSCC;
 - **one result format and report**, with full provenance.
 
 The full specification is in [PROTOCOL.md](PROTOCOL.md).
@@ -38,49 +32,36 @@ flowchart LR
     J --> P["uwbench report<br/>figures and tables"]
 ```
 
-Every system is run over the SNR grid of a scenario, on the same images, with the same
-seeds and the same channel code. A new model only has to implement `encode` and `decode`
-(see [Evaluating your own model](#evaluating-your-own-model)).
+Every system is run over the SNR grid of a scenario, on the same images, with the same seeds and the same channel code. A new model only has to implement `encode` and `decode` (see [Evaluating your own model](#evaluating-your-own-model)).
 
 ## Reference results
 
-UIEB test split (89 images), bandwidth ratio ρ = k/n = 1/6, one channel realisation per
-image and SNR, 95 % confidence bands. Optical SNRs are transmitted electrical SNRs: 20 m
-of clear ocean costs 26.1 dB, 2 m of turbid harbor 37.7 dB. In (d), the learned models
-are those trained on clear ocean (b), to measure mismatch.
+UIEB test split (89 images), bandwidth ratio ρ = k/n = 1/6, one channel realisation per image and SNR, 95 % confidence bands. Optical SNRs are transmitted electrical SNRs: 20 m of clear ocean costs 26.1 dB, 2 m of turbid harbor 37.7 dB. In (d), the learned models are those trained on clear ocean (b), to measure mismatch.
 
 ![PSNR versus SNR](docs/figures/psnr.png)
 
 ![LPIPS versus SNR](docs/figures/lpips.png)
 
-- The separation chain shows the **cliff effect**: no image is decoded below a threshold
-  SNR (mid-grey fallback, 11.8 dB), then the quality saturates.
-- **ADJSCC degrades gracefully.** It delivers 29.2 dB at −5 dB on the acoustic link,
-  where the separation chain decodes nothing, and stays 1.7 to 5.3 dB below the ideal
-  separation bound.
-- **DeepJSCC** (0.16 M parameters, not SNR-aware) saturates at 28.3 dB (acoustic) and
-  24.6 dB (optical).
-- Under **mismatch** (d), ADJSCC is told an SNR 11.6 dB too high and loses up to 5 dB at
-  low SNR, while the SNR-agnostic DeepJSCC follows its clear-ocean curve.
+- The separation chain shows the **cliff effect**: no image is decoded below a threshold SNR (mid-grey fallback, 11.8 dB), then the quality saturates.
+- **ADJSCC degrades gracefully.** It delivers 29.2 dB at −5 dB on the acoustic link, where the separation chain decodes nothing, and stays 1.7 to 5.3 dB below the ideal separation bound.
+- **DeepJSCC** (0.16 M parameters, not SNR-aware) saturates at 28.3 dB (acoustic) and 24.6 dB (optical).
+- Under **mismatch** (d), ADJSCC is told an SNR 11.6 dB too high and loses up to 5 dB at low SNR, while the SNR-agnostic DeepJSCC follows its clear-ocean curve.
 
-The result files are in [`reference_results/uieb_test/`](reference_results/uieb_test/)
-(schema in PROTOCOL.md §6). The figures are regenerated with:
+The result files are in [`reference_results/uieb_test/`](reference_results/uieb_test/) (schema in PROTOCOL.md §6). The figures are regenerated with:
 
 ```bash
 python scripts/plot_results.py --metric psnr --out docs/figures/psnr
 python scripts/plot_results.py --metric lpips --out docs/figures/lpips
 ```
 
-They were produced on an RTX 3090. Their provenance records commit `a21d35c` with local
-changes, the version 1.0 code copied by hand onto the training machine.
+They were produced on an RTX 3090. Their provenance records commit `a21d35c` with local changes, the version 1.0 code copied by hand onto the training machine.
 
 | Model | Parameters | FLOPs per 256×256 image | Latency (RTX 3090, batch 1) |
 | --- | ---: | ---: | ---: |
 | DeepJSCC | 0.16 M | 1.3 G | 1.7 ms |
 | ADJSCC | 10.8 M | 93.8 G | 5.8 ms |
 
-Measured with `python scripts/complexity.py --size 256 --device cuda` (encoder and
-decoder, without the channel).
+Measured with `python scripts/complexity.py --size 256 --device cuda` (encoder and decoder, without the channel).
 
 ## Installation
 
@@ -98,8 +79,7 @@ pip install -e ".[dev,baseline]"
 pytest
 ```
 
-The `baseline` extra installs NVIDIA Sionna (`sionna-no-rt`) for the LDPC codes of the
-separation baseline.
+The `baseline` extra installs NVIDIA Sionna (`sionna-no-rt`) for the LDPC codes of the separation baseline.
 
 ## Quick start (a few minutes)
 
@@ -118,17 +98,11 @@ This writes:
 - the matching `.csv`, with one row per image and SNR;
 - a figure and Markdown/LaTeX tables in `results/report/`.
 
-**Note on UIEB.** The UIEB archives are password-protected RAR files. The passwords are
-published on the official page and stored in the registry, and extraction calls 7-Zip or
-`unrar`. Automatic extraction has not been tested end to end. If it fails:
-1. extract the three archives into `datasets/uieb/extracted/<archive name>/` with the
-   passwords given in `uwbench/data/registry.yaml`;
-2. run `uwbench verify uieb`, which checks every file against the manifest.
+**Note on UIEB.** The UIEB archives are password-protected RAR files. The passwords are published on the official page and stored in the registry, and extraction calls 7-Zip or `unrar`.
 
 ## Reproducing the reference results
 
-The splits are versioned in `splits/` with their SHA-256 values in PROTOCOL.md, so
-`uwbench dedup` and `uwbench split` do not need to be re-run.
+The splits are versioned in `splits/` with their SHA-256 values in PROTOCOL.md, so `uwbench dedup` and `uwbench split` do not need to be re-run.
 
 **Separation baseline** (UIEB only):
 
@@ -159,20 +133,15 @@ done
 uwbench report results/uieb/*.json --out results/uieb/report
 ```
 
-Training stops when the validation PSNR has not improved for 20 epochs (at most 200).
-On an RTX 3090, one epoch takes about 25–30 s for DeepJSCC and 80 s for ADJSCC.
-Re-running an interrupted command resumes it, for training and for evaluation.
+Training stops when the validation PSNR has not improved for 20 epochs (at most 200). On an RTX 3090, one epoch takes about 25–30 s for DeepJSCC and 80 s for ADJSCC. Re-running an interrupted command resumes it, for training and for evaluation.
 
 **Options of `uwbench evaluate`:**
-- `--snr-step 1` refines the grid to 1 dB over the same range; the step and `--limit`
-  are added to the file names, so runs never overwrite each other;
-- `--workers` runs images in parallel processes (about 0.6 to 1 GB of RAM each); results
-  do not depend on it. With LDPC decoding on a small GPU, keep the default of 1.
+- `--snr-step 1` refines the grid to 1 dB over the same range; the step and `--limit` are added to the file names, so runs never overwrite each other;
+- `--workers` runs images in parallel processes (about 0.6 to 1 GB of RAM each); results do not depend on it. With LDPC decoding on a small GPU, keep the default of 1.
 
 ## Evaluating your own model
 
-Any analog (learned) scheme can be evaluated with the same channels, data, metrics and
-report as the baselines.
+Any analog (learned) scheme can be evaluated with the same channels, data, metrics and report as the baselines.
 
 **1. Implement the interface** (`uwbench.models.base.JSCCModel`, a `torch.nn.Module`):
 
@@ -202,8 +171,7 @@ The benchmark does the rest, identically for every model:
   signal on a DC bias, clipped at zero, for optical IM/DD;
 - it applies the scenario's channel and returns the receiver's estimate to `decode`.
 
-The latent size sets the bandwidth ratio: k/n = c·h·w / (2·3·H·W) for complex symbols,
-without the factor 2 for real ones.
+The latent size sets the bandwidth ratio: k/n = c·h·w / (2·3·H·W) for complex symbols, without the factor 2 for real ones.
 
 **2. Describe the model in YAML**, like `configs/models/deepjscc.yaml`:
 
@@ -224,8 +192,7 @@ uwbench evaluate --system configs/models/my_model.yaml --scenario configs/scenar
 uwbench report results/*.json reference_results/uieb_test/*uwoc_clear*.json --out results/report
 ```
 
-The last command draws your curves next to the reference ones. Checkpoints are loaded
-with `weights_only=True`.
+The last command draws your curves next to the reference ones. Checkpoints are loaded with `weights_only=True`.
 
 **Reference models** (`uwbench/models/`, `configs/models/`):
 
@@ -235,8 +202,7 @@ with `weights_only=True`.
 | ADJSCC (Xu et al., 2022) | translation of the official TensorFlow code (MIT) | trained, reference results |
 | WITT (Yang et al., 2023) | official architecture, re-written (the repository has no license) | implemented and tested, no reference results yet |
 
-Deviations from the papers are listed in PROTOCOL.md §7. Trained weights are not
-published.
+Deviations from the papers are listed in PROTOCOL.md §7. Trained weights are not published.
 
 ## Commands
 
@@ -264,39 +230,31 @@ published.
 | Reference results and figures | `reference_results/`, `docs/figures/`, `scripts/` |
 | Tests (run by the CI) | `tests/` |
 
-**Not included in version 1.0:** a task metric (SUIM mIoU), BPG, pilot-based channel
-estimation, wideband Doppler, trained weights.
+**Not included in version 1.0:** a task metric (SUIM mIoU), BPG, pilot-based channel estimation, wideband Doppler, trained weights.
 
 ## Data policy
 
-This repository never contains images or files from third-party datasets: only scripts,
-file-identifier lists, checksums and metadata. Downloaded datasets go into `datasets/`,
-which git ignores. Each dataset keeps its own license, which you must respect (see
-[DATASETS.md](DATASETS.md)).
+This repository never contains images or files from third-party datasets: only scripts, file-identifier lists, checksums and metadata. Downloaded datasets go into `datasets/`, which git ignores. Each dataset keeps its own license, which you must respect (see [DATASETS.md](DATASETS.md)).
 
 ## Citation
 
 If you use UWBench, please cite the survey and the software:
 
-> M. Nennouche, A. Khalighi, Z. A. H. Qasem, S. Berra, and G. Kaddoum, "Enabling
-> Intelligence in the Deep: A Comprehensive Survey of Semantic Communications for
-> Underwater Wireless Systems," submitted, 2026.
+> Mohamed Nennouche, Ali Khalighi, Zeyad a H Qasem, Salah Berra, Georges Kaddoum. Enabling Intelligence in the Deep: A Comprehensive Survey of Semantic Communications for Underwater Wireless Systems. 2026. ⟨hal-05665330⟩
 
-> M. Nennouche, "UWBench: reference evaluation protocol for underwater semantic
-> communications," Zenodo, 2026. doi:
-> [10.5281/zenodo.24355730](https://doi.org/10.5281/zenodo.24355730).
+> M. Nennouche, "UWBench: reference evaluation protocol for underwater semantic communications," Zenodo, 2026. doi:[10.5281/zenodo.24355730](https://doi.org/10.5281/zenodo.24355730).
 
-This DOI covers all versions and resolves to the latest one. To cite version 1.0.0
-specifically, use [10.5281/zenodo.24355731](https://doi.org/10.5281/zenodo.24355731).
+This DOI covers all versions and resolves to the latest one. To cite version 1.0.0 specifically, use [10.5281/zenodo.24355731](https://doi.org/10.5281/zenodo.24355731).
 
 ```bibtex
-@article{nennouche2026enabling,
-  title   = {Enabling Intelligence in the Deep: A Comprehensive Survey of Semantic
-             Communications for Underwater Wireless Systems},
-  author  = {Nennouche, Mohamed and Khalighi, Ali and Qasem, Zeyad A. H. and
-             Berra, Salah and Kaddoum, Georges},
-  year    = {2026},
-  note    = {Submitted}
+@unpublished{nennouche2026enabling,
+  title  = {Enabling Intelligence in the Deep: A Comprehensive Survey of Semantic Communications for Underwater Wireless Systems},
+  author = {Nennouche, Mohamed and Khalighi, Ali and Qasem, Zeyad A. H. and Berra, Salah and Kaddoum, Georges},
+  year   = {2026},
+  month  = {June},
+  hal_id = {hal-05665330},
+  hal_version = {v1},
+  url    = {https://hal.science/hal-05665330}
 }
 
 @software{nennouche2026uwbench,
@@ -310,7 +268,7 @@ specifically, use [10.5281/zenodo.24355731](https://doi.org/10.5281/zenodo.24355
 }
 ```
 
-Machine-readable metadata: [CITATION.cff](CITATION.cff).
+[CITATION.cff](CITATION.cff).
 
 ## Acknowledgements
 
